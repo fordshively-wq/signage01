@@ -1,0 +1,22 @@
+{
+  "name": "signalboard-signage",
+  "version": "1.0.0",
+  "description": "A full-stack digital signage platform prototype with accounts, signage groups, pairing codes, calendar feeds, weather, media, timers, and blackout schedules.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "digital-signage",
+    "dashboard",
+    "signage",
+    "calendar",
+    "timers"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}
