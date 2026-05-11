@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
+loadEnvFile();
+
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || (process.env.RENDER ? "0.0.0.0" : "127.0.0.1");
 const ROOT = __dirname;
@@ -11,6 +13,7 @@ const DATA_DIR = path.join(ROOT, "data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 const SESSION_DAYS = 14;
 const MAX_JSON_BYTES = 20 * 1024 * 1024;
+const firebase = initFirebase();
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -25,7 +28,20 @@ const MIME = {
   ".ico": "image/x-icon"
 };
 
-ensureDb();
+function loadEnvFile() {
+  const file = path.join(__dirname, ".env");
+  if (!fs.existsSync(file)) return;
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const index = trimmed.indexOf("=");
+    if (index === -1) continue;
+    const key = trimmed.slice(0, index).trim();
+    const value = trimmed.slice(index + 1).trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -41,14 +57,22 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`SignalBoard is running at http://${HOST}:${PORT}`);
-});
+start();
+
+async function start() {
+  ensureDb();
+  await hydrateDbFromFirestore();
+  server.listen(PORT, HOST, () => {
+    console.log(`SignalBoard is running at http://${HOST}:${PORT}`);
+  });
+}
 
 async function routeApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/auth/register") return register(req, res);
   if (req.method === "POST" && url.pathname === "/api/auth/login") return login(req, res);
+  if (req.method === "POST" && url.pathname === "/api/auth/firebase-session") return firebaseSession(req, res);
   if (req.method === "POST" && url.pathname === "/api/auth/logout") return logout(req, res);
+  if (req.method === "GET" && url.pathname === "/api/firebase-config") return firebaseConfig(req, res);
   if (req.method === "GET" && url.pathname === "/api/me") return me(req, res);
 
   if (req.method === "GET" && url.pathname === "/api/groups") return listGroups(req, res);
@@ -145,6 +169,41 @@ async function login(req, res) {
   writeDb(db);
   setSessionCookie(res, session.token);
   sendJson(res, 200, { user: publicUser(user) });
+}
+
+async function firebaseSession(req, res) {
+  if (!firebase.admin) return sendJson(res, 503, { error: "Firebase Admin is not configured on the server." });
+  const body = await readJson(req);
+  const idToken = String(body.idToken || "");
+  if (!idToken) return sendJson(res, 400, { error: "Firebase ID token is required." });
+  const decoded = await firebase.admin.auth().verifyIdToken(idToken);
+  const db = readDb();
+  let user = db.users.find((entry) => entry.firebaseUid === decoded.uid || entry.id === decoded.uid);
+  if (!user) {
+    user = {
+      id: decoded.uid,
+      firebaseUid: decoded.uid,
+      name: String(decoded.name || body.name || decoded.email || "Firebase User").trim(),
+      email: normalizeEmail(decoded.email || body.email || ""),
+      provider: decoded.firebase?.sign_in_provider || "firebase",
+      createdAt: new Date().toISOString()
+    };
+    db.users.push(user);
+  } else {
+    user.name = String(decoded.name || body.name || user.name || "").trim() || user.name;
+    user.email = normalizeEmail(decoded.email || user.email || "");
+    user.provider = decoded.firebase?.sign_in_provider || user.provider || "firebase";
+    user.firebaseUid = decoded.uid;
+  }
+  const session = createSession(db, user.id);
+  writeDb(db);
+  setSessionCookie(res, session.token);
+  sendJson(res, 200, { user: publicUser(user) });
+}
+
+function firebaseConfig(req, res) {
+  const config = publicFirebaseConfig();
+  sendJson(res, 200, { enabled: Boolean(firebase.admin && config.apiKey && config.authDomain && config.projectId && config.appId), config });
 }
 
 async function logout(req, res) {
@@ -619,6 +678,69 @@ function readDb() {
 
 function writeDb(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  syncDbToFirestore(db).catch((error) => {
+    console.error("Firestore sync failed:", error.message);
+  });
+}
+
+function initFirebase() {
+  try {
+    const admin = require("firebase-admin");
+    if (admin.apps.length) return { admin, firestore: admin.firestore() };
+    const credential = firebaseCredential(admin);
+    if (!credential) return { admin: null, firestore: null };
+    admin.initializeApp({ credential });
+    return { admin, firestore: admin.firestore() };
+  } catch (error) {
+    console.warn("Firebase Admin disabled:", error.message);
+    return { admin: null, firestore: null };
+  }
+}
+
+function firebaseCredential(admin) {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    return admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON));
+  }
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    return admin.credential.cert(JSON.parse(fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, "utf8")));
+  }
+  return null;
+}
+
+function publicFirebaseConfig() {
+  return {
+    apiKey: process.env.FIREBASE_API_KEY || "",
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || "",
+    projectId: process.env.FIREBASE_PROJECT_ID || "",
+    appId: process.env.FIREBASE_APP_ID || "",
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || ""
+  };
+}
+
+async function hydrateDbFromFirestore() {
+  if (!firebase.firestore) return;
+  const db = readDb();
+  const [usersSnap, groupsSnap] = await Promise.all([
+    firebase.firestore.collection("users").get(),
+    firebase.firestore.collection("groups").get()
+  ]);
+  db.users = usersSnap.docs.map((doc) => doc.data());
+  db.groups = groupsSnap.docs.map((doc) => doc.data());
+  db.sessions = [];
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
+
+async function syncDbToFirestore(db) {
+  if (!firebase.firestore) return;
+  const batch = firebase.firestore.batch();
+  for (const user of db.users || []) {
+    batch.set(firebase.firestore.collection("users").doc(user.id), user, { merge: true });
+  }
+  for (const group of db.groups || []) {
+    batch.set(firebase.firestore.collection("groups").doc(group.id), group, { merge: true });
+    batch.set(firebase.firestore.collection("codes").doc(group.code), { groupId: group.id, code: group.code }, { merge: true });
+  }
+  await batch.commit();
 }
 
 function createSession(db, userId) {

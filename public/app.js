@@ -96,6 +96,7 @@ async function renderHome() {
           <input name="password" type="password" placeholder="Password" autocomplete="current-password" required />
           <button class="secondary">Sign In</button>
         </form>
+        <button class="secondary full" data-action="google-login">Sign in with Google</button>
       `}
     </section>
     ${toast()}
@@ -626,7 +627,7 @@ async function handleSubmit(event) {
   const data = Object.fromEntries(new FormData(form).entries());
   try {
     if (action === "register" || action === "login") {
-      const result = await api(`/api/auth/${action}`, { method: "POST", body: data });
+      const result = await authRequest(action, data);
       state.user = result.user;
       navigate("/dashboard");
     }
@@ -674,10 +675,21 @@ async function handleClick(event) {
     await renderDashboard();
   }
   if (action === "logout") {
+    if (window.signalFirebase?.enabled) await window.signalFirebase.logout();
     await api("/api/auth/logout", { method: "POST" });
     state.user = null;
     state.activeGroup = null;
     navigate("/");
+  }
+  if (action === "google-login") {
+    try {
+      if (!window.signalFirebase?.enabled) throw new Error("Firebase Auth is not configured yet.");
+      const result = await window.signalFirebase.google();
+      state.user = result.user;
+      navigate("/dashboard");
+    } catch (error) {
+      flash(error.message);
+    }
   }
   if (action === "delete-group" && state.activeGroup && confirm("Delete this signage group?")) {
     await api(`/api/groups/${state.activeGroup.id}`, { method: "DELETE" });
@@ -753,6 +765,15 @@ async function sendControl(payload) {
   const surface = document.querySelector("#controlSurface");
   if (surface) surface.innerHTML = controlSurface(group);
   flash("Display updated.");
+}
+
+async function authRequest(action, data) {
+  await window.signalFirebase?.ready;
+  if (window.signalFirebase?.enabled) {
+    if (action === "register") return window.signalFirebase.register(data.email, data.password, data.name);
+    return window.signalFirebase.login(data.email, data.password);
+  }
+  return api(`/api/auth/${action}`, { method: "POST", body: data });
 }
 
 function collectBasicSettings(form) {
