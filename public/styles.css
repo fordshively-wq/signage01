@@ -549,6 +549,36 @@ code,
   --line: rgba(16, 33, 44, 0.18);
 }
 
+.theme-home {
+  color: #17202a;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(236, 240, 244, 0.9)),
+    radial-gradient(circle at 74% 22%, rgba(111, 168, 255, 0.25), transparent 34%);
+  --line: rgba(23, 32, 42, 0.14);
+}
+
+.theme-frost {
+  color: #101d25;
+  background:
+    linear-gradient(135deg, #f8fbfd, #edf4f7 58%, #dfe9ee),
+    radial-gradient(circle at 16% 80%, rgba(92, 211, 185, 0.18), transparent 32%);
+  --line: rgba(16, 29, 37, 0.14);
+}
+
+.theme-graphite {
+  color: #f5f7f8;
+  background:
+    linear-gradient(135deg, #15171a, #23272b 58%, #111214),
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.1), transparent 28%);
+}
+
+.theme-midnight {
+  color: #f5f7fb;
+  background:
+    linear-gradient(135deg, #05070d, #101929 56%, #0a0d14),
+    radial-gradient(circle at 82% 24%, rgba(71, 132, 255, 0.2), transparent 32%);
+}
+
 .theme-contrast {
   background: #000;
   color: #fff;
@@ -606,7 +636,9 @@ code,
 
 .theme-gallery .command-media-card::after,
 .theme-paper .command-media-card::after,
-.theme-sky .command-media-card::after {
+.theme-sky .command-media-card::after,
+.theme-home .command-media-card::after,
+.theme-frost .command-media-card::after {
   background:
     linear-gradient(90deg, rgba(255, 255, 255, calc(0.62 + var(--overlay-alpha) * 0.34)), rgba(255, 255, 255, calc(0.42 + var(--overlay-alpha) * 0.28))),
     linear-gradient(135deg, rgba(255, 255, 255, 0.32), transparent 45%);
@@ -614,7 +646,9 @@ code,
 
 .theme-gallery .media-showcase::after,
 .theme-paper .media-showcase::after,
-.theme-sky .media-showcase::after {
+.theme-sky .media-showcase::after,
+.theme-home .media-showcase::after,
+.theme-frost .media-showcase::after {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, calc(0.5 + var(--overlay-alpha) * 0.3)), rgba(255, 255, 255, calc(0.18 + var(--overlay-alpha) * 0.2)) 42%, rgba(255, 255, 255, calc(0.5 + var(--overlay-alpha) * 0.32))),
     linear-gradient(90deg, rgba(255, 255, 255, 0.48), transparent 56%);
@@ -748,7 +782,9 @@ code,
 
 .theme-gallery .trigger-display,
 .theme-paper .trigger-display,
-.theme-sky .trigger-display {
+.theme-sky .trigger-display,
+.theme-home .trigger-display,
+.theme-frost .trigger-display {
   border-color: rgba(24, 32, 37, 0.14);
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 18px 48px rgba(31, 44, 53, 0.12);
@@ -765,7 +801,11 @@ code,
 .theme-paper .trigger-display span,
 .theme-paper .trigger-display p,
 .theme-sky .trigger-display span,
-.theme-sky .trigger-display p {
+.theme-sky .trigger-display p,
+.theme-home .trigger-display span,
+.theme-home .trigger-display p,
+.theme-frost .trigger-display span,
+.theme-frost .trigger-display p {
   color: rgba(20, 26, 30, 0.72);
 }
 
@@ -820,7 +860,9 @@ code,
 
 .layout-calendar.theme-gallery .command-media-card::after,
 .layout-calendar.theme-paper .command-media-card::after,
-.layout-calendar.theme-sky .command-media-card::after {
+.layout-calendar.theme-sky .command-media-card::after,
+.layout-calendar.theme-home .command-media-card::after,
+.layout-calendar.theme-frost .command-media-card::after {
   background: rgba(255, 255, 255, 0.88);
 }
 
@@ -994,12 +1036,31 @@ code,
 .theme-gallery .rail-tile,
 .theme-paper .rail-tile,
 .theme-sky .rail-tile,
+.theme-home .rail-tile,
+.theme-frost .rail-tile,
 .theme-gallery .calendar-cell,
 .theme-paper .calendar-cell,
-.theme-sky .calendar-cell {
-  background: rgba(255, 255, 255, 0.72);
+.theme-sky .calendar-cell,
+.theme-home .calendar-cell,
+.theme-frost .calendar-cell {
+  background: rgba(255, 255, 255, 0.74);
   border-color: rgba(24, 32, 37, 0.16);
   box-shadow: 0 12px 34px rgba(31, 44, 53, 0.08);
+}
+
+.theme-home .rail-tile,
+.theme-frost .rail-tile {
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(18px) saturate(1.18);
+  box-shadow: 0 18px 46px rgba(31, 44, 53, 0.12);
+}
+
+.theme-graphite .rail-tile,
+.theme-midnight .rail-tile {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px) saturate(1.1);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
 }
 
 .theme-gallery .rail-tile small,
@@ -1011,31 +1072,55 @@ code,
 .theme-sky .rail-tile small,
 .theme-sky .rail-tile span,
 .theme-sky .rail-tile p,
+.theme-home .rail-tile small,
+.theme-home .rail-tile span,
+.theme-home .rail-tile p,
+.theme-frost .rail-tile small,
+.theme-frost .rail-tile span,
+.theme-frost .rail-tile p,
 .theme-gallery .calendar-board header span,
 .theme-paper .calendar-board header span,
 .theme-sky .calendar-board header span,
+.theme-home .calendar-board header span,
+.theme-frost .calendar-board header span,
 .theme-gallery .calendar-weekdays b,
 .theme-paper .calendar-weekdays b,
-.theme-sky .calendar-weekdays b {
+.theme-sky .calendar-weekdays b,
+.theme-home .calendar-weekdays b,
+.theme-frost .calendar-weekdays b {
   color: rgba(20, 26, 30, 0.68);
 }
 
 .theme-gallery .player-copy p,
 .theme-paper .player-copy p,
 .theme-sky .player-copy p,
+.theme-home .player-copy p,
+.theme-frost .player-copy p,
 .theme-gallery .event-body p,
 .theme-gallery .event-body em,
 .theme-paper .event-body p,
 .theme-paper .event-body em,
 .theme-sky .event-body p,
-.theme-sky .event-body em {
+.theme-sky .event-body em,
+.theme-home .event-body p,
+.theme-home .event-body em,
+.theme-frost .event-body p,
+.theme-frost .event-body em {
   color: rgba(20, 26, 30, 0.72);
 }
 
 .theme-gallery .player-rail,
 .theme-paper .player-rail,
-.theme-sky .player-rail {
+.theme-sky .player-rail,
+.theme-home .player-rail,
+.theme-frost .player-rail {
   background: rgba(255, 255, 255, 0.52);
+}
+
+.theme-home .player-rail,
+.theme-frost .player-rail {
+  background: rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(22px) saturate(1.16);
 }
 
 .theme-gallery .calendar-board,
@@ -1052,7 +1137,17 @@ code,
 .theme-paper .weather-board span,
 .theme-paper .weather-board p,
 .theme-sky .weather-board span,
-.theme-sky .weather-board p {
+.theme-sky .weather-board p,
+.theme-home .calendar-board,
+.theme-frost .calendar-board,
+.theme-home .calendar-cell > span,
+.theme-frost .calendar-cell > span,
+.theme-home .calendar-cell p,
+.theme-frost .calendar-cell p,
+.theme-home .weather-board span,
+.theme-home .weather-board p,
+.theme-frost .weather-board span,
+.theme-frost .weather-board p {
   color: currentColor;
 }
 
@@ -1093,16 +1188,23 @@ code,
 
 .time-tile span {
   display: block;
-  font-size: clamp(34px, 4vw, 64px);
+  font-size: clamp(24px, 3.2vw, 54px);
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1;
   white-space: nowrap;
+  max-width: 100%;
+}
+
+.time-tile.with-seconds span {
+  font-size: clamp(20px, 2.65vw, 42px);
 }
 
 .time-tile small {
   display: block;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .primary-events {
@@ -1218,9 +1320,10 @@ code,
 
 .countdown-list p span {
   color: currentColor;
-  font-size: clamp(38px, 4vw, 72px);
+  font-size: 36px;
   font-weight: 900;
-  line-height: 0.95;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .fullscreen-button {

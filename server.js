@@ -305,7 +305,7 @@ async function controlGroup(req, res, code) {
   if (!group) return sendJson(res, 404, { error: "No signage group is paired with that code." });
   const body = await readJson(req);
   if (body.layout && ["command", "media", "calendar", "weather", "workshop"].includes(body.layout)) group.layout = body.layout;
-  if (body.theme && ["aurora", "ember", "mono", "field", "gallery", "paper", "sky", "contrast"].includes(body.theme)) group.theme = body.theme;
+  if (body.theme && ["aurora", "ember", "mono", "field", "gallery", "paper", "sky", "home", "frost", "graphite", "midnight", "contrast"].includes(body.theme)) group.theme = body.theme;
   if (typeof body.fillScreen === "boolean") group.settings.fillScreen = body.fillScreen;
   if (typeof body.showMediaBanner === "boolean") group.settings.showMediaBanner = body.showMediaBanner;
   if (typeof body.showSeconds === "boolean") group.settings.showSeconds = body.showSeconds;
@@ -460,7 +460,7 @@ function sanitizeGroup(raw) {
     createdAt: "",
     updatedAt: ""
   });
-  safe.theme = ["aurora", "ember", "mono", "field", "gallery", "paper", "sky", "contrast"].includes(raw.theme) ? raw.theme : "aurora";
+  safe.theme = ["aurora", "ember", "mono", "field", "gallery", "paper", "sky", "home", "frost", "graphite", "midnight", "contrast"].includes(raw.theme) ? raw.theme : "aurora";
   safe.layout = ["command", "media", "calendar", "weather", "workshop"].includes(raw.layout) ? raw.layout : "command";
   safe.settings = {
     timezone: String(raw.settings?.timezone || "America/New_York").trim().slice(0, 80),

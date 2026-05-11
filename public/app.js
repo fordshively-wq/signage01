@@ -168,7 +168,7 @@ function dashboardEditor(group) {
         <label>Headline<input name="headline" value="${attr(group.settings.headline)}" /></label>
         <label>Subheadline<input name="subheadline" value="${attr(group.settings.subheadline)}" /></label>
         <div class="split">
-          <label>Theme${select("theme", group.theme, [["aurora", "Aurora"], ["ember", "Ember"], ["mono", "Mono"], ["field", "Field"], ["gallery", "White Gallery"], ["paper", "Warm Paper"], ["sky", "Soft Sky"], ["contrast", "High Contrast"]])}</label>
+          <label>Theme${select("theme", group.theme, themeOptions())}</label>
           <label>Layout${select("layout", group.layout, [["command", "Command"], ["media", "Media Wall"], ["calendar", "Calendar Board"], ["weather", "Weather Board"], ["workshop", "Workshop"]])}</label>
         </div>
         <div class="split">
@@ -358,7 +358,7 @@ function controlSurface(group) {
         <div>
           <h2>Theme</h2>
           <div class="control-buttons">
-            ${[["aurora", "Aurora"], ["gallery", "White"], ["paper", "Paper"], ["sky", "Sky"], ["contrast", "Contrast"]].map(([key, label]) => `
+            ${themeOptions().map(([key, label]) => `
               <button class="${group.theme === key ? "primary" : "secondary"}" data-control-theme="${key}">${label}</button>
             `).join("")}
           </div>
@@ -468,7 +468,7 @@ function drawPlayer() {
       ${trigger ? triggerView(trigger) : ""}
     </section>
     <aside class="player-rail">
-      ${group.modules.clock ? `<div class="rail-tile time-tile"><span id="clock">${formatTime(group.settings.showSeconds)}</span><small>${group.modules.date ? formatDate() : ""}</small></div>` : ""}
+      ${group.modules.clock ? `<div class="rail-tile time-tile ${group.settings.showSeconds ? "with-seconds" : ""}"><span id="clock">${formatTime(group.settings.showSeconds)}</span><small>${group.modules.date ? formatDate() : ""}</small></div>` : ""}
       ${group.modules.calendar || group.modules.events ? eventsTile() : ""}
       ${group.modules.weather ? weatherTile() : ""}
       ${group.modules.countdowns ? countdownsTile(group.countdowns) : ""}
@@ -859,6 +859,23 @@ async function api(url, options = {}) {
 
 function select(name, value, options, attrName = "name") {
   return `<select ${attrName}="${name}">${options.map(([key, label]) => `<option value="${key}" ${key === value ? "selected" : ""}>${label}</option>`).join("")}</select>`;
+}
+
+function themeOptions() {
+  return [
+    ["aurora", "Aurora"],
+    ["ember", "Ember"],
+    ["mono", "Mono"],
+    ["field", "Field"],
+    ["gallery", "White Gallery"],
+    ["paper", "Warm Paper"],
+    ["sky", "Soft Sky"],
+    ["home", "Home Glass"],
+    ["frost", "Frosted Home"],
+    ["graphite", "Graphite Glass"],
+    ["midnight", "Midnight Home"],
+    ["contrast", "High Contrast"]
+  ];
 }
 
 function fileToDataUrl(file) {
