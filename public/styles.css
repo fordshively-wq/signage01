@@ -199,6 +199,20 @@ label {
   gap: 10px;
 }
 
+.auth-options {
+  display: grid;
+  gap: 8px;
+}
+
+.google-button {
+  min-height: 48px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: #f4f0e8;
+  color: #11161b;
+  font-weight: 900;
+}
+
 .auth-form.compact {
   grid-template-columns: 1fr 1fr auto;
   grid-column: 2;

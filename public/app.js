@@ -85,6 +85,10 @@ async function renderHome() {
       ${state.user ? `
         <button class="primary" data-nav="/dashboard">Go to Dashboard</button>
       ` : `
+        <div class="auth-options">
+          <button class="google-button" data-action="google-login">Continue with Google</button>
+          <p class="muted">Or use Firebase email and password.</p>
+        </div>
         <form class="auth-form" data-action="register">
           <input name="name" placeholder="Name" autocomplete="name" required />
           <input name="email" inputmode="email" placeholder="Email" autocomplete="email" required />
@@ -96,7 +100,6 @@ async function renderHome() {
           <input name="password" type="password" placeholder="Password" autocomplete="current-password" required />
           <button class="secondary">Sign In</button>
         </form>
-        <button class="secondary full" data-action="google-login">Sign in with Google</button>
       `}
     </section>
     ${toast()}
