@@ -760,6 +760,12 @@ function themeIds() {
     "sea-glass",
     "coastal-navy",
     "coral-coast",
+    "dune-house",
+    "cape-cod-morning",
+    "graphite-sand",
+    "champagne-coast",
+    "moonlit-marina",
+    "after-hours-beach-house",
     "graphite"
   ];
 }

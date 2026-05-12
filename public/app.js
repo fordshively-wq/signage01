@@ -1009,6 +1009,12 @@ function themeOptions() {
     { id: "sea-glass", label: "Sea Glass", tagline: "Cool, fresh, and tranquil with sea glass greens and soft aqua tones.", palette: ["#bde4db", "#89c7bb", "#559f9b", "#2f7b7c"] },
     { id: "coastal-navy", label: "Coastal Navy", tagline: "Nautical and timeless with deep navy, crisp white, and ocean accents.", palette: ["#f5f7fb", "#6ba7d4", "#3f82bd", "#16528c"] },
     { id: "coral-coast", label: "Coral Coast", tagline: "Warm, vibrant, and tropical with coral tones and sandy neutrals.", palette: ["#ffb39d", "#ff907f", "#f8756b", "#e85f58"] },
+    { id: "dune-house", label: "Dune House", tagline: "Warm oat, clay beige, seafoam hints.", palette: ["#d8cbb8", "#b99b78", "#8e5c35", "#99b8b0"] },
+    { id: "cape-cod-morning", label: "Cape Cod Morning", tagline: "Foggy blue-grays with driftwood neutrals.", palette: ["#dbe5ea", "#a7bac8", "#6f91a7", "#294f6b"] },
+    { id: "graphite-sand", label: "Graphite & Sand", tagline: "Matte charcoal with warm coastal beige highlights.", palette: ["#2f3438", "#565f62", "#b89b67", "#d8c7a5"] },
+    { id: "champagne-coast", label: "Champagne Coast", tagline: "Ivory, champagne gold, muted stone.", palette: ["#fbf6ed", "#e2d3bd", "#bd8a52", "#7b5a38"] },
+    { id: "moonlit-marina", label: "Moonlit Marina", tagline: "Dark navy, calm cyan glow, muted blues.", palette: ["#0b2233", "#13364b", "#39b8cf", "#82d6e6"] },
+    { id: "after-hours-beach-house", label: "After Hours Beach House", tagline: "Charcoal, warm amber lighting, deep coast.", palette: ["#262b2f", "#3a3a34", "#c58d36", "#e4b765"] },
     { id: "graphite", label: "Graphite Glass", tagline: "Dark glass with crisp contrast and cool neutral accents.", palette: ["#bfc9d2", "#8aa2b1", "#617886", "#3d4a54"] }
   ];
 }
@@ -1066,6 +1072,12 @@ function themeWidgetIcon(themeId) {
     "sea-glass": "✦",
     "coastal-navy": "⚓",
     "coral-coast": "✹",
+    "dune-house": "▣",
+    "cape-cod-morning": "≋",
+    "graphite-sand": "◩",
+    "champagne-coast": "⌘",
+    "moonlit-marina": "☾",
+    "after-hours-beach-house": "☼",
     graphite: "◆"
   };
   return `<span class="widget-glyph">${map[themeId] || "◆"}</span>`;
