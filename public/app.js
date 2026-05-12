@@ -7,6 +7,7 @@ const state = {
   events: [],
   weather: null,
   mediaIndex: 0,
+  groupRevision: 0,
   toast: ""
 };
 
@@ -483,18 +484,22 @@ function mediaStage(group, media, image) {
   if (group.layout === "media") {
     return `
       <div class="media-showcase">
-        <img class="player-media hero-media" src="${image.dataUrl}" alt="" />
+        <img class="player-media hero-media" src="${mediaUrl(image)}" alt="" />
         ${group.settings.showMediaBanner === false ? "" : `<div class="media-scroll" style="--media-count: ${Math.max(1, media.length)}">
-          ${items.map((item) => `<img src="${item.dataUrl}" alt="" />`).join("")}
+          ${items.map((item) => `<img src="${mediaUrl(item)}" alt="" />`).join("")}
         </div>`}
       </div>
     `;
   }
   return `
     <div class="command-media-card">
-      <img class="player-media" src="${image.dataUrl}" alt="" />
+      <img class="player-media" src="${mediaUrl(image)}" alt="" />
     </div>
   `;
+}
+
+function mediaUrl(item) {
+  return item?.dataUrl || item?.url || "";
 }
 
 function calendarBoard() {
@@ -730,6 +735,7 @@ async function handleChange(event) {
       const dataUrl = await fileToDataUrl(file);
       state.activeGroup.media.push({ id: uid("img"), name: file.name, dataUrl, durationSeconds: 12 });
     }
+    markGroupChanged();
     await saveActiveGroup();
     renderDashboard();
   }
@@ -759,6 +765,7 @@ function handleInput(event) {
   if (!item) return;
   item[prop] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
   if (prop === "target") item[prop] = new Date(event.target.value).toISOString();
+  markGroupChanged();
   debounceSave();
 }
 
@@ -794,6 +801,7 @@ function collectBasicSettings(form) {
   group.settings.showSeconds = fd.get("showSeconds") === "on";
   group.settings.overlayOpacity = Number(fd.get("overlayOpacity") || 58);
   for (const key of Object.keys(group.modules)) group.modules[key] = fd.get(`module:${key}`) === "on";
+  markGroupChanged();
 }
 
 async function sendTrigger(type, durationSeconds = 0, label = "") {
@@ -805,6 +813,7 @@ async function sendTrigger(type, durationSeconds = 0, label = "") {
 
 function mutateGroup(mutator) {
   mutator(state.activeGroup);
+  markGroupChanged();
   saveActiveGroup();
   renderDashboard();
 }
@@ -814,8 +823,13 @@ function removeByClick(event, attrName, collection) {
   if (!button || !state.activeGroup) return;
   const idValue = button.getAttribute(attrName);
   state.activeGroup[collection] = state.activeGroup[collection].filter((item) => item.id !== idValue);
+  markGroupChanged();
   saveActiveGroup();
   renderDashboard();
+}
+
+function markGroupChanged() {
+  state.groupRevision += 1;
 }
 
 let saveTimer;
@@ -826,8 +840,12 @@ function debounceSave() {
 
 async function saveActiveGroup() {
   if (!state.activeGroup) return;
-  const result = await api(`/api/groups/${state.activeGroup.id}`, { method: "PUT", body: { group: state.activeGroup } });
-  state.activeGroup = result.group;
+  const revision = state.groupRevision;
+  const snapshot = JSON.parse(JSON.stringify(state.activeGroup));
+  const result = await api(`/api/groups/${snapshot.id}`, { method: "PUT", body: { group: snapshot } });
+  if (revision === state.groupRevision) {
+    state.activeGroup = result.group;
+  }
 }
 
 function tick() {

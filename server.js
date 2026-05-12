@@ -246,6 +246,7 @@ async function createGroup(req, res) {
   });
   auth.db.groups.push(group);
   writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
   sendJson(res, 201, { group });
 }
 
@@ -273,6 +274,7 @@ async function updateGroup(req, res, groupId) {
     updatedAt: new Date().toISOString()
   });
   writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
   sendJson(res, 200, { group });
 }
 
@@ -284,6 +286,7 @@ async function deleteGroup(req, res, groupId) {
   const [deleted] = auth.db.groups.splice(index, 1);
   await deleteGroupFromFirestore(deleted);
   writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
   sendJson(res, 200, { ok: true });
 }
 
@@ -317,6 +320,7 @@ async function controlGroup(req, res, code) {
   }
   group.updatedAt = new Date().toISOString();
   writeDb(db);
+  await syncDbToFirestore(db);
   sendJson(res, 200, { group: controlGroupView(group) });
 }
 
@@ -329,6 +333,7 @@ async function triggerGroup(req, res, groupId) {
   applyTrigger(group, body);
   group.updatedAt = new Date().toISOString();
   writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
   sendJson(res, 200, { group });
 }
 
