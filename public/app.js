@@ -935,20 +935,7 @@ function select(name, value, options, attrName = "name") {
 }
 
 function themeOptions() {
-  return [
-    ["aurora", "Aurora"],
-    ["ember", "Ember"],
-    ["mono", "Mono"],
-    ["field", "Field"],
-    ["gallery", "White Gallery"],
-    ["paper", "Warm Paper"],
-    ["sky", "Soft Sky"],
-    ["home", "Home Glass"],
-    ["frost", "Frosted Home"],
-    ["graphite", "Graphite Glass"],
-    ["midnight", "Midnight Home"],
-    ["contrast", "High Contrast"]
-  ];
+  return [["graphite", "Graphite Glass"]];
 }
 
 function fileToDataUrl(file) {
