@@ -688,7 +688,7 @@ async function handleSubmit(event) {
         .split(/\r?\n/)
         .map((value) => value.trim())
         .filter((value) => /^https:\/\/\S+$/i.test(value))
-        .slice(0, Math.max(0, 20 - state.activeGroup.media.length));
+        .slice(0, Math.max(0, 100 - state.activeGroup.media.length));
       if (!urls.length) throw new Error("Paste at least one direct https image URL.");
       const existing = new Set(state.activeGroup.media.map((item) => item.dataUrl));
       const additions = urls

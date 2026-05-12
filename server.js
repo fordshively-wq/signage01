@@ -492,14 +492,14 @@ function sanitizeGroup(raw) {
     countdowns: Boolean(raw.modules?.countdowns),
     events: Boolean(raw.modules?.events)
   };
-  safe.calendarFeeds = array(raw.calendarFeeds).slice(0, 8).map((feed, index) => ({
+  safe.calendarFeeds = array(raw.calendarFeeds).slice(0, 24).map((feed, index) => ({
     id: String(feed.id || id("cal")).slice(0, 40),
     name: String(feed.name || "Calendar").trim().slice(0, 80),
     url: String(feed.url || "").trim().slice(0, 1000),
     color: calendarColor(feed.color, index),
     enabled: feed.enabled !== false
   }));
-  safe.media = array(raw.media).slice(0, 20).map((item) => ({
+  safe.media = array(raw.media).slice(0, 100).map((item) => ({
     id: String(item.id || id("img")).slice(0, 40),
     name: String(item.name || "Image").trim().slice(0, 100),
     dataUrl: mediaSource(item.dataUrl),
@@ -508,7 +508,7 @@ function sanitizeGroup(raw) {
     size: Number.isFinite(Number(item.size)) ? Number(item.size) : 0,
     durationSeconds: clamp(Number(item.durationSeconds || 12), 3, 120)
   })).filter((item) => item.dataUrl);
-  safe.countdowns = array(raw.countdowns).slice(0, 12).map((timer) => ({
+  safe.countdowns = array(raw.countdowns).slice(0, 40).map((timer) => ({
     id: String(timer.id || id("cnt")).slice(0, 40),
     name: String(timer.name || "Countdown").trim().slice(0, 80),
     mode: timer.mode === "countup" ? "countup" : "countdown",
@@ -802,7 +802,7 @@ async function hydrateDbFromFirestore() {
     firebase.firestore.collection("groups").get()
   ]);
   db.users = usersSnap.docs.map((doc) => doc.data());
-  db.groups = groupsSnap.docs.map((doc) => doc.data());
+  db.groups = await Promise.all(groupsSnap.docs.map(async (doc) => hydrateGroupCollections(doc.data())));
   db.sessions = [];
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
@@ -818,13 +818,81 @@ async function syncDbToFirestore(db) {
     batch.set(firebase.firestore.collection("codes").doc(group.code), { groupId: group.id, code: group.code }, { merge: true });
   }
   await batch.commit();
+  await Promise.all((db.groups || []).map((group) => syncGroupCollections(group)));
 }
 
 async function deleteGroupFromFirestore(group) {
   if (!firebase.firestore || !group) return;
+  await Promise.all([
+    deleteSubcollection(group.id, "calendars"),
+    deleteSubcollection(group.id, "countdowns"),
+    deleteSubcollection(group.id, "imageLinks")
+  ]);
   const batch = firebase.firestore.batch();
   batch.delete(firebase.firestore.collection("groups").doc(group.id));
   if (group.code) batch.delete(firebase.firestore.collection("codes").doc(group.code));
+  await batch.commit();
+}
+
+async function hydrateGroupCollections(group) {
+  const ref = firebase.firestore.collection("groups").doc(group.id);
+  const [calendarSnap, countdownSnap, imageLinkSnap] = await Promise.all([
+    ref.collection("calendars").get(),
+    ref.collection("countdowns").get(),
+    ref.collection("imageLinks").get()
+  ]);
+  const calendars = calendarSnap.docs.map((doc) => doc.data());
+  const countdowns = countdownSnap.docs.map((doc) => doc.data());
+  const imageLinks = imageLinkSnap.docs.map((doc) => doc.data());
+  const storedMedia = array(group.media);
+  const uploadedMedia = storedMedia.filter((item) => item.storagePath || String(item.dataUrl || "").startsWith("data:image/"));
+  const hydrated = sanitizeGroup({
+    ...group,
+    calendarFeeds: calendars.length ? calendars : group.calendarFeeds,
+    countdowns: countdowns.length ? countdowns : group.countdowns,
+    media: imageLinks.length ? [...uploadedMedia, ...imageLinks] : storedMedia
+  });
+  return Object.assign(hydrated, {
+    id: group.id,
+    ownerId: group.ownerId,
+    code: group.code,
+    createdAt: group.createdAt,
+    updatedAt: group.updatedAt
+  });
+}
+
+async function syncGroupCollections(group) {
+  await Promise.all([
+    replaceSubcollection(group.id, "calendars", group.calendarFeeds || []),
+    replaceSubcollection(group.id, "countdowns", group.countdowns || []),
+    replaceSubcollection(group.id, "imageLinks", linkedMediaItems(group.media || []))
+  ]);
+}
+
+function linkedMediaItems(media) {
+  return media.filter((item) => !item.storagePath && /^https:\/\//i.test(String(item.dataUrl || "")));
+}
+
+async function replaceSubcollection(groupId, name, items) {
+  const collection = firebase.firestore.collection("groups").doc(groupId).collection(name);
+  const existing = await collection.get();
+  if (!existing.size && !items.length) return;
+  const keepIds = new Set(items.map((item) => item.id));
+  const batch = firebase.firestore.batch();
+  for (const doc of existing.docs) {
+    if (!keepIds.has(doc.id)) batch.delete(doc.ref);
+  }
+  for (const item of items) {
+    batch.set(collection.doc(item.id), item, { merge: true });
+  }
+  await batch.commit();
+}
+
+async function deleteSubcollection(groupId, name) {
+  const snapshot = await firebase.firestore.collection("groups").doc(groupId).collection(name).get();
+  if (!snapshot.size) return;
+  const batch = firebase.firestore.batch();
+  for (const doc of snapshot.docs) batch.delete(doc.ref);
   await batch.commit();
 }
 
