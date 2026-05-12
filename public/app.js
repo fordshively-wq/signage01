@@ -1003,8 +1003,6 @@ function select(name, value, options, attrName = "name") {
 function themeOptions() {
   return [
     { id: "sun-bleached", label: "Beach House Sun Bleached", tagline: "Airy, light, and minimal with sun-bleached neutrals.", palette: ["#ecdcc6", "#d9c3a7", "#b6cad5", "#7f9fb0"] },
-    { id: "beach-house-sea-glass", label: "Beach House Sea Glass", tagline: "Soft, coastal, and breezy with sea glass blues.", palette: ["#b7d0d2", "#8fb2b6", "#6d8f9b", "#dce7e8"] },
-    { id: "coastal-gray", label: "Beach House Coastal Gray", tagline: "Timeless, calm, and refined with coastal grays.", palette: ["#cfd7dd", "#9aaab6", "#667f90", "#e6ecef"] },
     { id: "coastal-fog", label: "Coastal Fog", tagline: "Cool, misty, and relaxed with soft coastal blues.", palette: ["#cfdbe1", "#a8bbc6", "#6e8c9f", "#eef3f5"] },
     { id: "coastal-sand", label: "Coastal Sand", tagline: "Light and airy with soft neutrals and ocean accents.", palette: ["#8ad9e0", "#b6ddd2", "#ffd39a", "#cbc1d3"] },
     { id: "beach-house", label: "Beach House", tagline: "Airy, sun-bleached, and coastal with sandy neutrals and ocean blues.", palette: ["#69c6d8", "#63b9cd", "#3f8fb3", "#2964a1"] },
@@ -1062,8 +1060,6 @@ function weatherIcon(code, isDay = 1) {
 function themeWidgetIcon(themeId) {
   const map = {
     "sun-bleached": "⌁",
-    "beach-house-sea-glass": "◌",
-    "coastal-gray": "⌂",
     "coastal-fog": "≈",
     "coastal-sand": "◔",
     "beach-house": "⌇",

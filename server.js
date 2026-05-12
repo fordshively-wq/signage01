@@ -754,8 +754,6 @@ function readDb() {
 function themeIds() {
   return [
     "sun-bleached",
-    "beach-house-sea-glass",
-    "coastal-gray",
     "coastal-fog",
     "coastal-sand",
     "beach-house",
