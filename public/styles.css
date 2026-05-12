@@ -438,6 +438,24 @@ code,
   border-radius: 6px;
 }
 
+.media-item span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.media-item span b {
+  color: var(--accent-2);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.compact {
+  min-height: 34px;
+  padding-inline: 10px;
+}
+
 .inline-form {
   display: grid;
   grid-template-columns: 1fr 90px auto;
@@ -985,9 +1003,37 @@ code,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: repeat(6, minmax(0, 1fr));
   gap: 8px;
   min-height: 0;
+}
+
+.calendar-grid {
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+}
+
+.calendar-board.range-three-day .calendar-weekdays,
+.calendar-board.range-three-day .calendar-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.calendar-board.range-three-day .calendar-grid {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.calendar-board.range-week .calendar-grid {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.calendar-board.range-two-week .calendar-grid {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.calendar-board:not(.range-month) .calendar-cell {
+  padding: clamp(12px, 1.3vw, 18px);
+}
+
+.calendar-board:not(.range-month) .calendar-cell p {
+  font-size: clamp(13px, 1.15vw, 20px);
 }
 
 .calendar-weekdays b {

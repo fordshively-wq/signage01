@@ -172,6 +172,7 @@ function dashboardEditor(group) {
           <label>Theme${select("theme", group.theme, themeOptions())}</label>
           <label>Layout${select("layout", group.layout, [["command", "Command"], ["media", "Media Wall"], ["calendar", "Calendar Board"], ["weather", "Weather Board"], ["workshop", "Workshop"]])}</label>
         </div>
+        <label>Calendar view${select("calendarRange", group.settings.calendarRange || "month", [["three-day", "3 Days"], ["week", "1 Week"], ["two-week", "2 Weeks"], ["month", "1 Month"]])}</label>
         <div class="split">
           <label>Weather City<input name="weatherLocation" value="${attr(group.settings.weatherLocation)}" placeholder="Chicago, IL" /></label>
           <label>Weather ZIP<input name="weatherZip" inputmode="numeric" maxlength="5" value="${attr(group.settings.weatherZip || "")}" placeholder="10001" /></label>
@@ -231,8 +232,8 @@ function dashboardEditor(group) {
           ${group.media.map((item) => `
             <div class="media-item">
               <img src="${item.dataUrl}" alt="" />
-              <span>${escapeHtml(item.name)}</span>
-              <button class="icon" data-remove-media="${item.id}">x</button>
+              <span><b>${item.storagePath ? "Upload" : "Link"}</b>${escapeHtml(item.name)}</span>
+              <button class="secondary compact" type="button" data-remove-media="${item.id}" aria-label="Remove ${attr(item.name)}">Remove</button>
             </div>
           `).join("") || `<p class="muted">Uploaded images or direct image links rotate on the display.</p>`}
         </div>
@@ -510,6 +511,33 @@ function mediaUrl(item) {
 
 function calendarBoard() {
   const today = new Date();
+  const range = state.playerGroup?.settings?.calendarRange || "month";
+  const cells = calendarCells(today, range);
+  const weekdays = range === "month"
+    ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    : cells.filter(Boolean).slice(0, range === "three-day" ? 3 : 7).map((date) => formatWeekday(date));
+  const title = range === "month"
+    ? new Intl.DateTimeFormat([], { month: "long", year: "numeric" }).format(today)
+    : calendarRangeTitle(cells.filter(Boolean), range);
+  return `
+    <section class="calendar-board range-${range}">
+      <header>
+        <span>${formatDate()}</span>
+        <strong>${title}</strong>
+      </header>
+      <div class="calendar-weekdays">${weekdays.map((day) => `<b>${day}</b>`).join("")}</div>
+      <div class="calendar-grid">
+        ${cells.map((date) => calendarCell(date, today)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function calendarCells(today, range) {
+  if (range !== "month") {
+    const total = range === "three-day" ? 3 : range === "week" ? 7 : 14;
+    return Array.from({ length: total }, (_, index) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + index));
+  }
   const year = today.getFullYear();
   const month = today.getMonth();
   const start = new Date(year, month, 1);
@@ -519,18 +547,7 @@ function calendarBoard() {
   for (let i = 0; i < firstDay; i += 1) cells.push(null);
   for (let day = 1; day <= days; day += 1) cells.push(new Date(year, month, day));
   while (cells.length % 7) cells.push(null);
-  return `
-    <section class="calendar-board">
-      <header>
-        <span>${formatDate()}</span>
-        <strong>${new Intl.DateTimeFormat([], { month: "long", year: "numeric" }).format(today)}</strong>
-      </header>
-      <div class="calendar-weekdays">${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<b>${day}</b>`).join("")}</div>
-      <div class="calendar-grid">
-        ${cells.map((date) => calendarCell(date, today)).join("")}
-      </div>
-    </section>
-  `;
+  return cells;
 }
 
 function calendarCell(date, today) {
@@ -539,7 +556,7 @@ function calendarCell(date, today) {
   const isToday = sameDay(date, today);
   return `
     <div class="calendar-cell ${isToday ? "today" : ""}">
-      <span>${date.getDate()}</span>
+      <span>${formatCalendarCellDate(date)}</span>
       ${events.map((event) => `<p style="--event-color: ${attr(event.feedColor || "#41d6b3")}"><b></b>${escapeHtml(event.title)}</p>`).join("")}
     </div>
   `;
@@ -837,6 +854,7 @@ function collectBasicSettings(form) {
   group.settings.showMediaBanner = fd.get("showMediaBanner") === "on";
   group.settings.showSeconds = fd.get("showSeconds") === "on";
   group.settings.overlayOpacity = Number(fd.get("overlayOpacity") || 58);
+  group.settings.calendarRange = fd.get("calendarRange") || "month";
   for (const key of Object.keys(group.modules)) group.modules[key] = fd.get(`module:${key}`) === "on";
   markGroupChanged();
 }
@@ -983,6 +1001,21 @@ function formatEventMonth(value) {
 
 function formatEventDay(value) {
   return new Intl.DateTimeFormat([], { day: "2-digit" }).format(new Date(value));
+}
+
+function formatWeekday(value) {
+  return new Intl.DateTimeFormat([], { weekday: "short" }).format(value);
+}
+
+function formatCalendarCellDate(value) {
+  return new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(value);
+}
+
+function calendarRangeTitle(dates, range) {
+  const first = dates[0] || new Date();
+  const last = dates[dates.length - 1] || first;
+  const prefix = range === "three-day" ? "3 Days" : range === "week" ? "1 Week" : "2 Weeks";
+  return `${prefix} · ${new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(first)} - ${new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(last)}`;
 }
 
 function sameDay(a, b) {

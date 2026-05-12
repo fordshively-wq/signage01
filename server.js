@@ -315,6 +315,7 @@ async function controlGroup(req, res, code) {
   if (typeof body.showMediaBanner === "boolean") group.settings.showMediaBanner = body.showMediaBanner;
   if (typeof body.showSeconds === "boolean") group.settings.showSeconds = body.showSeconds;
   if (Number.isFinite(Number(body.overlayOpacity))) group.settings.overlayOpacity = clamp(Number(body.overlayOpacity), 0, 90);
+  if (["three-day", "week", "two-week", "month"].includes(body.calendarRange)) group.settings.calendarRange = body.calendarRange;
   if (body.trigger && typeof body.trigger === "object") {
     applyTrigger(group, body.trigger);
   }
@@ -362,7 +363,7 @@ async function calendarEvents(req, res, groupId) {
   const results = await Promise.allSettled(feeds.map((feed, index) => fetchCalendarFeed(feed, index)));
   const events = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []))
     .sort((a, b) => a.start.localeCompare(b.start))
-    .slice(0, 30);
+    .slice(0, 120);
   sendJson(res, 200, { events });
 }
 
@@ -439,7 +440,8 @@ function defaultGroup(base) {
       fillScreen: false,
       showMediaBanner: true,
       showSeconds: false,
-      overlayOpacity: 58
+      overlayOpacity: 58,
+      calendarRange: "month"
     },
     modules: {
       clock: true,
@@ -478,7 +480,8 @@ function sanitizeGroup(raw) {
     fillScreen: Boolean(raw.settings?.fillScreen),
     showMediaBanner: raw.settings?.showMediaBanner !== false,
     showSeconds: Boolean(raw.settings?.showSeconds),
-    overlayOpacity: clamp(Number(raw.settings?.overlayOpacity ?? 58), 0, 90)
+    overlayOpacity: clamp(Number(raw.settings?.overlayOpacity ?? 58), 0, 90),
+    calendarRange: ["three-day", "week", "two-week", "month"].includes(raw.settings?.calendarRange) ? raw.settings.calendarRange : "month"
   };
   safe.modules = {
     clock: Boolean(raw.modules?.clock),
@@ -546,7 +549,8 @@ function controlGroupView(group) {
       fillScreen: Boolean(group.settings?.fillScreen),
       showMediaBanner: group.settings?.showMediaBanner !== false,
       showSeconds: Boolean(group.settings?.showSeconds),
-      overlayOpacity: Number(group.settings?.overlayOpacity ?? 58)
+      overlayOpacity: Number(group.settings?.overlayOpacity ?? 58),
+      calendarRange: group.settings?.calendarRange || "month"
     },
     liveTrigger: group.liveTrigger
   };
