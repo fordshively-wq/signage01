@@ -8,7 +8,9 @@ const state = {
   weather: null,
   mediaIndex: 0,
   groupRevision: 0,
-  toast: ""
+  toast: "",
+  wakeLock: null,
+  wakeLockWanted: false
 };
 
 const $app = document.querySelector("#app");
@@ -25,6 +27,9 @@ window.addEventListener("submit", handleSubmit);
 window.addEventListener("click", handleClick);
 window.addEventListener("change", handleChange);
 window.addEventListener("input", handleInput);
+document.addEventListener("visibilitychange", maintainWakeLock);
+window.addEventListener("pageshow", maintainWakeLock);
+document.addEventListener("fullscreenchange", maintainWakeLock);
 
 init();
 
@@ -39,6 +44,7 @@ async function init() {
 
 async function route() {
   const path = location.pathname;
+  if (path !== "/player") releaseWakeLock();
   const renderer = routes[path] || renderHome;
   await renderer();
 }
@@ -408,11 +414,14 @@ async function renderPlayer() {
   const code = new URLSearchParams(location.search).get("code") || state.playerCode;
   if (!code) return renderDisplayPair();
   state.playerCode = code.toUpperCase();
+  state.wakeLockWanted = true;
+  maintainWakeLock();
   try {
     state.playerGroup = (await api(`/api/player/${state.playerCode}`)).group;
     state.events = [];
     state.weather = null;
     drawPlayer();
+    maintainWakeLock();
     refreshPlayerData(true).then(drawPlayer).catch(() => drawPlayer());
   } catch (error) {
     flash(error.message);
@@ -427,6 +436,30 @@ async function renderPlayer() {
       } catch {}
     }
   }, 15000);
+}
+
+async function maintainWakeLock() {
+  if (!state.wakeLockWanted || location.pathname !== "/player" || document.visibilityState !== "visible") return;
+  if (!("wakeLock" in navigator) || state.wakeLock) return;
+  try {
+    state.wakeLock = await navigator.wakeLock.request("screen");
+    state.wakeLock.addEventListener("release", () => {
+      state.wakeLock = null;
+      if (state.wakeLockWanted && location.pathname === "/player" && document.visibilityState === "visible") {
+        setTimeout(maintainWakeLock, 500);
+      }
+    });
+  } catch {
+    state.wakeLock = null;
+  }
+}
+
+function releaseWakeLock() {
+  state.wakeLockWanted = false;
+  if (!state.wakeLock) return;
+  const lock = state.wakeLock;
+  state.wakeLock = null;
+  lock.release().catch(() => {});
 }
 
 async function refreshPlayerData(quiet = false) {
