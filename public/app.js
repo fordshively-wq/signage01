@@ -221,6 +221,12 @@ function dashboardEditor(group) {
           <h2>Images</h2>
           <label class="file-button">Upload<input type="file" accept="image/*" multiple data-action="upload-images" /></label>
         </div>
+        <form class="stack image-link-form" data-action="add-image-links">
+          <label>Image links
+            <textarea name="imageLinks" rows="3" placeholder="Paste one direct image URL per line"></textarea>
+          </label>
+          <button class="secondary" type="submit">Add Links</button>
+        </form>
         <div class="media-list">
           ${group.media.map((item) => `
             <div class="media-item">
@@ -228,7 +234,7 @@ function dashboardEditor(group) {
               <span>${escapeHtml(item.name)}</span>
               <button class="icon" data-remove-media="${item.id}">x</button>
             </div>
-          `).join("") || `<p class="muted">Uploaded images rotate on the display.</p>`}
+          `).join("") || `<p class="muted">Uploaded images or direct image links rotate on the display.</p>`}
         </div>
       </section>
 
@@ -659,6 +665,30 @@ async function handleSubmit(event) {
     if (action === "control-custom-trigger") {
       await sendControl({ trigger: { type: "timer", durationSeconds: Number(data.minutes) * 60, label: data.label } });
     }
+    if (action === "add-image-links") {
+      if (!state.activeGroup) return;
+      const urls = String(data.imageLinks || "")
+        .split(/\r?\n/)
+        .map((value) => value.trim())
+        .filter((value) => /^https:\/\/\S+$/i.test(value))
+        .slice(0, Math.max(0, 20 - state.activeGroup.media.length));
+      if (!urls.length) throw new Error("Paste at least one direct https image URL.");
+      const existing = new Set(state.activeGroup.media.map((item) => item.dataUrl));
+      const additions = urls
+        .filter((url) => !existing.has(url))
+        .map((url, index) => ({
+          id: uid("img"),
+          name: imageLinkName(url, index),
+          dataUrl: url,
+          durationSeconds: 12
+        }));
+      if (!additions.length) throw new Error("Those image links are already in this group.");
+      state.activeGroup.media.push(...additions);
+      markGroupChanged();
+      renderDashboard();
+      await saveActiveGroup();
+      flash(`${additions.length} image link${additions.length === 1 ? "" : "s"} saved.`);
+    }
   } catch (error) {
     flash(error.message);
   }
@@ -1009,6 +1039,16 @@ function labelize(value) {
 
 function calendarPalette(index) {
   return ["#41d6b3", "#f2b84b", "#7da8ff", "#ff7a90", "#9be564", "#c084fc", "#5ee7ff", "#ff9f68"][index % 8];
+}
+
+function imageLinkName(url, index) {
+  try {
+    const parsed = new URL(url);
+    const leaf = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "");
+    return (leaf || parsed.hostname || `Linked image ${index + 1}`).slice(0, 100);
+  } catch {
+    return `Linked image ${index + 1}`;
+  }
 }
 
 function escapeHtml(value) {
