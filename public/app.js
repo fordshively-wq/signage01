@@ -714,17 +714,17 @@ async function handleClick(event) {
   if (controlTheme) await sendControl({ theme: controlTheme.dataset.controlTheme });
   const controlTrigger = event.target.closest("[data-control-trigger]");
   if (controlTrigger) await sendControl({ trigger: { type: controlTrigger.dataset.controlTrigger, durationSeconds: Number(controlTrigger.dataset.duration || 0) } });
-  if (action === "add-calendar") mutateGroup((group) => group.calendarFeeds.push({ id: uid("cal"), name: "Calendar", url: "", color: calendarPalette(group.calendarFeeds.length), enabled: true }));
-  if (action === "add-countdown") mutateGroup((group) => group.countdowns.push({ id: uid("cnt"), name: "Launch", mode: "countdown", target: new Date(Date.now() + 86400_000).toISOString(), enabled: true }));
-  if (action === "add-blackout") mutateGroup((group) => group.blackoutTimes.push({ id: uid("blk"), name: "Evening blackout", start: "22:00", end: "06:00", days: [0,1,2,3,4,5,6], enabled: true }));
+  if (action === "add-calendar") await mutateGroup((group) => group.calendarFeeds.push({ id: uid("cal"), name: "Calendar", url: "", color: calendarPalette(group.calendarFeeds.length), enabled: true }));
+  if (action === "add-countdown") await mutateGroup((group) => group.countdowns.push({ id: uid("cnt"), name: "Launch", mode: "countdown", target: new Date(Date.now() + 86400_000).toISOString(), enabled: true }));
+  if (action === "add-blackout") await mutateGroup((group) => group.blackoutTimes.push({ id: uid("blk"), name: "Evening blackout", start: "22:00", end: "06:00", days: [0,1,2,3,4,5,6], enabled: true }));
   const trigger = event.target.closest("[data-trigger]");
   if (trigger) await sendTrigger(trigger.dataset.trigger, Number(trigger.dataset.duration || 0));
   const preview = event.target.closest("[data-open-player]");
   if (preview) window.open(`/player?code=${preview.dataset.openPlayer}`, "_blank");
-  removeByClick(event, "data-remove-calendar", "calendarFeeds");
-  removeByClick(event, "data-remove-countdown", "countdowns");
-  removeByClick(event, "data-remove-blackout", "blackoutTimes");
-  removeByClick(event, "data-remove-media", "media");
+  await removeByClick(event, "data-remove-calendar", "calendarFeeds");
+  await removeByClick(event, "data-remove-countdown", "countdowns");
+  await removeByClick(event, "data-remove-blackout", "blackoutTimes");
+  await removeByClick(event, "data-remove-media", "media");
 }
 
 async function handleChange(event) {
@@ -740,6 +740,7 @@ async function handleChange(event) {
     renderDashboard();
   }
   handleInput(event);
+  if (event.target.dataset.field) await saveActiveGroup();
 }
 
 function handleInput(event) {
@@ -811,20 +812,20 @@ async function sendTrigger(type, durationSeconds = 0, label = "") {
   renderDashboard();
 }
 
-function mutateGroup(mutator) {
+async function mutateGroup(mutator) {
   mutator(state.activeGroup);
   markGroupChanged();
-  saveActiveGroup();
+  await saveActiveGroup();
   renderDashboard();
 }
 
-function removeByClick(event, attrName, collection) {
+async function removeByClick(event, attrName, collection) {
   const button = event.target.closest(`[${attrName}]`);
   if (!button || !state.activeGroup) return;
   const idValue = button.getAttribute(attrName);
   state.activeGroup[collection] = state.activeGroup[collection].filter((item) => item.id !== idValue);
   markGroupChanged();
-  saveActiveGroup();
+  await saveActiveGroup();
   renderDashboard();
 }
 
