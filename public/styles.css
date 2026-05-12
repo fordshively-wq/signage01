@@ -456,6 +456,129 @@ code,
   padding-inline: 10px;
 }
 
+.theme-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.theme-picker h3 {
+  margin: 0;
+}
+
+.theme-preview-strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.theme-card {
+  flex: 0 0 250px;
+  display: grid;
+  gap: 8px;
+  min-height: 232px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.theme-card.selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.theme-card strong,
+.theme-card small {
+  display: block;
+}
+
+.theme-card small {
+  min-height: 34px;
+  color: var(--muted);
+}
+
+.theme-shot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 6px;
+  min-height: 118px;
+  overflow: hidden;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--preview-a, #e8eff1) 84%, white), var(--preview-b, #dbe4e7));
+}
+
+.theme-shot.has-image {
+  background:
+    linear-gradient(90deg, transparent 0 42%, rgba(255, 255, 255, 0.78) 42% 100%),
+    var(--preview-image) center / cover;
+}
+
+.theme-shot > i,
+.theme-shot > b,
+.theme-shot > em {
+  position: absolute;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.theme-shot > i {
+  left: 48%;
+  right: 8px;
+  top: 10px;
+  height: 42px;
+}
+
+.theme-shot > b {
+  left: 48%;
+  right: 8px;
+  top: 58px;
+  height: 28px;
+}
+
+.theme-shot > em {
+  left: 48%;
+  right: 8px;
+  bottom: 10px;
+  height: 18px;
+}
+
+.theme-swatches,
+.palette-recommendation span {
+  display: flex;
+  gap: 7px;
+}
+
+.theme-swatches i,
+.palette-recommendation i {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: var(--swatch);
+}
+
+.palette-recommendation {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.palette-recommendation > div {
+  display: grid;
+  gap: 8px;
+}
+
 .inline-form {
   display: grid;
   grid-template-columns: 1fr 90px auto;
@@ -519,6 +642,17 @@ code,
   color: #fff;
   overflow: hidden;
   --overlay-alpha: 0.58;
+  --signage-bg: linear-gradient(135deg, #f8f3eb, #e8eef0);
+  --signage-panel: rgba(255, 255, 255, 0.9);
+  --signage-card: rgba(255, 255, 255, 0.94);
+  --signage-rail: rgba(236, 242, 244, 0.86);
+  --signage-text: #334957;
+  --signage-muted: rgba(51, 73, 87, 0.74);
+  --signage-line: rgba(98, 120, 132, 0.2);
+  --signage-accent: #6f93a6;
+  --signage-accent-2: #d8c4ad;
+  background: var(--signage-bg);
+  color: var(--signage-text);
 }
 
 .layout-media {
@@ -541,12 +675,16 @@ code,
   grid-template-columns: 1fr;
 }
 
-.theme-graphite {
-  color: #f5f7f8;
-  background:
-    linear-gradient(135deg, #15171a, #23272b 58%, #111214),
-    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.1), transparent 28%);
-}
+.theme-sun-bleached { --signage-bg: linear-gradient(135deg, #fffaf5, #f6efe7); --signage-panel: rgba(255, 251, 246, 0.93); --signage-card: rgba(255, 253, 249, 0.96); --signage-rail: rgba(247, 240, 232, 0.88); --signage-text: #3f3a36; --signage-muted: rgba(86, 78, 71, 0.72); --signage-line: rgba(193, 171, 146, 0.28); --signage-accent: #7f9fb0; --signage-accent-2: #ecdcc6; }
+.theme-beach-house-sea-glass { --signage-bg: linear-gradient(135deg, #eff5f6, #dce5e7); --signage-panel: rgba(231, 238, 239, 0.92); --signage-card: rgba(255, 255, 255, 0.94); --signage-rail: rgba(214, 225, 228, 0.9); --signage-text: #29424d; --signage-muted: rgba(41, 66, 77, 0.7); --signage-line: rgba(112, 139, 148, 0.24); --signage-accent: #6d8f9b; --signage-accent-2: #b7d0d2; }
+.theme-coastal-gray { --signage-bg: linear-gradient(135deg, #eef2f5, #d9e0e5); --signage-panel: rgba(229, 235, 239, 0.94); --signage-card: rgba(255, 255, 255, 0.95); --signage-rail: rgba(219, 227, 232, 0.92); --signage-text: #355266; --signage-muted: rgba(53, 82, 102, 0.72); --signage-line: rgba(105, 126, 141, 0.24); --signage-accent: #667f90; --signage-accent-2: #cfd7dd; }
+.theme-coastal-fog { --signage-bg: linear-gradient(135deg, #eef4f6, #dde7eb); --signage-panel: rgba(232, 240, 243, 0.94); --signage-card: rgba(255, 255, 255, 0.94); --signage-rail: rgba(221, 231, 236, 0.9); --signage-text: #456477; --signage-muted: rgba(69, 100, 119, 0.72); --signage-line: rgba(121, 146, 160, 0.22); --signage-accent: #6e8c9f; --signage-accent-2: #cfdbe1; }
+.theme-coastal-sand { --signage-bg: linear-gradient(135deg, #fffaf1, #f4eadb); --signage-panel: rgba(255, 250, 243, 0.94); --signage-card: rgba(255, 254, 250, 0.96); --signage-rail: rgba(248, 239, 226, 0.9); --signage-text: #51473c; --signage-muted: rgba(81, 71, 60, 0.72); --signage-line: rgba(194, 170, 136, 0.24); --signage-accent: #8ad9e0; --signage-accent-2: #ffd39a; }
+.theme-beach-house { --signage-bg: linear-gradient(135deg, #fffaf2, #f0e7dc); --signage-panel: rgba(255, 250, 244, 0.94); --signage-card: rgba(255, 253, 249, 0.96); --signage-rail: rgba(247, 239, 229, 0.92); --signage-text: #2d6776; --signage-muted: rgba(45, 103, 118, 0.72); --signage-line: rgba(130, 160, 170, 0.22); --signage-accent: #69c6d8; --signage-accent-2: #2964a1; }
+.theme-sea-glass { --signage-bg: linear-gradient(135deg, #f4fbf8, #e5f0ec); --signage-panel: rgba(244, 250, 247, 0.95); --signage-card: rgba(255, 255, 255, 0.96); --signage-rail: rgba(234, 244, 240, 0.92); --signage-text: #3a756f; --signage-muted: rgba(58, 117, 111, 0.72); --signage-line: rgba(126, 177, 168, 0.23); --signage-accent: #89c7bb; --signage-accent-2: #2f7b7c; }
+.theme-coastal-navy { --signage-bg: linear-gradient(135deg, #0f2949, #08213f); --signage-panel: rgba(10, 34, 64, 0.96); --signage-card: rgba(17, 44, 77, 0.94); --signage-rail: rgba(9, 31, 58, 0.94); --signage-text: #f7fbff; --signage-muted: rgba(233, 241, 248, 0.72); --signage-line: rgba(167, 201, 228, 0.22); --signage-accent: #6ba7d4; --signage-accent-2: #f5f7fb; }
+.theme-coral-coast { --signage-bg: linear-gradient(135deg, #fff8f2, #f9efe7); --signage-panel: rgba(255, 249, 244, 0.95); --signage-card: rgba(255, 253, 250, 0.96); --signage-rail: rgba(251, 241, 233, 0.92); --signage-text: #704f43; --signage-muted: rgba(112, 79, 67, 0.72); --signage-line: rgba(222, 169, 151, 0.24); --signage-accent: #f8756b; --signage-accent-2: #ffb39d; }
+.theme-graphite { --signage-bg: linear-gradient(135deg, #15171a, #23272b 58%, #111214); --signage-panel: rgba(27, 31, 35, 0.92); --signage-card: rgba(255, 255, 255, 0.09); --signage-rail: rgba(0, 0, 0, 0.22); --signage-text: #f5f7f8; --signage-muted: rgba(255, 255, 255, 0.72); --signage-line: rgba(255, 255, 255, 0.14); --signage-accent: #8aa2b1; --signage-accent-2: #bfc9d2; }
 
 .player-main {
   position: relative;
@@ -562,6 +700,7 @@ code,
   position: relative;
   z-index: 2;
   max-width: 900px;
+  color: #fff;
   text-shadow: 0 2px 28px rgba(0, 0, 0, 0.55);
 }
 
@@ -745,13 +884,13 @@ code,
 }
 
 .player-rail {
-  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 1px solid var(--signage-line);
   padding: 24px;
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--signage-rail);
   height: 100vh;
   height: 100svh;
   overflow: hidden;
@@ -761,7 +900,7 @@ code,
 .layout-workshop .player-rail,
 .layout-weather .player-rail {
   border-left: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  border-right: 1px solid var(--signage-line);
   grid-column: 2;
   grid-row: 1;
 }
@@ -783,7 +922,7 @@ code,
 }
 
 .layout-calendar .command-media-card::after {
-  background: rgba(9, 13, 16, 0.82);
+  background: color-mix(in srgb, var(--signage-bg) 78%, rgba(9, 13, 16, 0.22));
 }
 
 .layout-calendar .player-copy {
@@ -819,7 +958,7 @@ code,
 
 .layout-media .player-rail {
   grid-template-columns: 1fr;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--signage-rail);
 }
 
 .layout-media .player-main {
@@ -864,7 +1003,7 @@ code,
   gap: 12px;
   height: calc(100vh - 68px);
   height: calc(100svh - 68px);
-  color: #f8f4eb;
+  color: var(--signage-text);
   overflow: hidden;
   font-weight: 800;
 }
@@ -877,7 +1016,7 @@ code,
 }
 
 .calendar-board header span {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--signage-muted);
   font-weight: 800;
 }
 
@@ -924,17 +1063,17 @@ code,
 }
 
 .calendar-weekdays b {
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--signage-muted);
   font-size: 14px;
   text-transform: uppercase;
 }
 
 .calendar-cell {
   min-height: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--signage-line);
   border-radius: 8px;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.34);
+  background: var(--signage-card);
   overflow: hidden;
 }
 
@@ -943,14 +1082,14 @@ code,
 }
 
 .calendar-cell.today {
-  border-color: var(--accent-2);
-  background: rgba(242, 184, 75, 0.12);
+  border-color: var(--signage-accent);
+  background: color-mix(in srgb, var(--signage-accent) 14%, var(--signage-card));
 }
 
 .calendar-cell > span {
   display: block;
   margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--signage-muted);
   font-weight: 900;
 }
 
@@ -959,7 +1098,7 @@ code,
   display: flex;
   gap: 6px;
   align-items: center;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--signage-text);
   font-size: clamp(10px, 0.9vw, 14px);
   line-height: 1.15;
   font-weight: 900;
@@ -981,15 +1120,63 @@ code,
   max-width: 900px;
 }
 
-.theme-graphite .rail-tile {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(18px) saturate(1.1);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+.weather-art {
+  width: fit-content;
+  padding: 10px 18px;
+  border: 1px solid var(--signage-line);
+  border-radius: 999px;
+  background: var(--signage-card);
+}
+
+.icon-tile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.tile-art {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: 1px solid var(--signage-line);
+  border-radius: 8px;
+  color: var(--signage-accent);
+  background: color-mix(in srgb, var(--signage-accent) 10%, var(--signage-card));
+}
+
+.weather-glyph,
+.widget-glyph {
+  color: var(--signage-accent);
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.weather-glyph.sun {
+  color: #efba54;
+}
+
+.weather-glyph.moon {
+  color: #afbdd0;
+}
+
+.weather-glyph.rain,
+.weather-glyph.cloud {
+  color: #6f97ad;
+}
+
+.weather-glyph.storm {
+  color: #8e7eb4;
+}
+
+.weather-glyph.snow {
+  color: #8abbd1;
 }
 
 .weather-board span {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--signage-muted);
   font-size: clamp(18px, 2vw, 30px);
   font-weight: 900;
 }
@@ -1001,21 +1188,22 @@ code,
 
 .weather-board p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--signage-muted);
   font-size: clamp(24px, 3vw, 48px);
 }
 
 .rail-tile {
   padding: 20px;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--signage-card);
+  border: 1px solid var(--signage-line);
+  border-radius: 8px;
   overflow: hidden;
   container-type: inline-size;
 }
 
 .rail-tile small,
 .rail-tile span {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--signage-muted);
 }
 
 .rail-tile strong {
@@ -1054,7 +1242,7 @@ code,
 .primary-events > small {
   display: block;
   margin-bottom: 14px;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--signage-muted);
   font-size: 15px;
   text-transform: uppercase;
   font-weight: 900;
@@ -1066,7 +1254,7 @@ code,
   grid-template-columns: 72px 1fr;
   gap: 14px;
   padding: 14px 0 14px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid var(--signage-line);
 }
 
 .event-card.featured {
@@ -1118,7 +1306,7 @@ code,
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--signage-muted);
   font-size: 13px;
   font-weight: 800;
 }
@@ -1136,7 +1324,7 @@ code,
 .event-body p,
 .event-body em {
   margin: 0;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--signage-muted);
   font-style: normal;
 }
 
@@ -1146,7 +1334,7 @@ code,
   display: flex;
   justify-content: space-between;
   gap: 14px;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--signage-muted);
 }
 
 .countdown-list p {

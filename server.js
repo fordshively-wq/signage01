@@ -310,7 +310,7 @@ async function controlGroup(req, res, code) {
   if (!group) return sendJson(res, 404, { error: "No signage group is paired with that code." });
   const body = await readJson(req);
   if (body.layout && ["command", "media", "calendar", "weather", "workshop"].includes(body.layout)) group.layout = body.layout;
-  if (body.theme === "graphite") group.theme = body.theme;
+  if (themeIds().includes(body.theme)) group.theme = body.theme;
   if (typeof body.fillScreen === "boolean") group.settings.fillScreen = body.fillScreen;
   if (typeof body.showMediaBanner === "boolean") group.settings.showMediaBanner = body.showMediaBanner;
   if (typeof body.showSeconds === "boolean") group.settings.showSeconds = body.showSeconds;
@@ -372,7 +372,7 @@ async function weather(req, res, url) {
   if (!location) return sendJson(res, 400, { error: "Location is required." });
   const place = await resolveWeatherPlace(location);
   if (!place) return sendJson(res, 404, { error: "Location not found." });
-  const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
+  const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
   const forecast = await fetchJson(forecastUrl);
   sendJson(res, 200, {
     location: [place.name, place.admin1, place.country].filter(Boolean).join(", "),
@@ -429,7 +429,7 @@ function ownedGroup(auth, groupId) {
 function defaultGroup(base) {
   return {
     ...base,
-    theme: "graphite",
+    theme: "beach-house",
     layout: "command",
     settings: {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York",
@@ -469,7 +469,7 @@ function sanitizeGroup(raw) {
     createdAt: "",
     updatedAt: ""
   });
-  safe.theme = "graphite";
+  safe.theme = themeIds().includes(raw.theme) ? raw.theme : "beach-house";
   safe.layout = ["command", "media", "calendar", "weather", "workshop"].includes(raw.layout) ? raw.layout : "command";
   safe.settings = {
     timezone: String(raw.settings?.timezone || "America/New_York").trim().slice(0, 80),
@@ -744,8 +744,26 @@ function ensureDb() {
 function readDb() {
   ensureDb();
   const db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-  db.groups = array(db.groups).map((group) => ({ ...group, theme: "graphite" }));
+  db.groups = array(db.groups).map((group) => ({
+    ...group,
+    theme: themeIds().includes(group.theme) ? group.theme : "beach-house"
+  }));
   return db;
+}
+
+function themeIds() {
+  return [
+    "sun-bleached",
+    "beach-house-sea-glass",
+    "coastal-gray",
+    "coastal-fog",
+    "coastal-sand",
+    "beach-house",
+    "sea-glass",
+    "coastal-navy",
+    "coral-coast",
+    "graphite"
+  ];
 }
 
 function writeDb(db) {

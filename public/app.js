@@ -168,10 +168,17 @@ function dashboardEditor(group) {
         <label>Name<input name="name" value="${attr(group.name)}" /></label>
         <label>Headline<input name="headline" value="${attr(group.settings.headline)}" /></label>
         <label>Subheadline<input name="subheadline" value="${attr(group.settings.subheadline)}" /></label>
-        <div class="split">
-          <label>Theme${select("theme", group.theme, themeOptions())}</label>
-          <label>Layout${select("layout", group.layout, [["command", "Command"], ["media", "Media Wall"], ["calendar", "Calendar Board"], ["weather", "Weather Board"], ["workshop", "Workshop"]])}</label>
-        </div>
+        <input type="hidden" name="theme" value="${attr(group.theme)}" />
+        <label>Layout${select("layout", group.layout, [["command", "Command"], ["media", "Media Wall"], ["calendar", "Calendar Board"], ["weather", "Weather Board"], ["workshop", "Workshop"]])}</label>
+        <section class="theme-picker">
+          <div class="panel-head">
+            <h3>Themes</h3>
+            <span class="muted">Scroll previews</span>
+          </div>
+          <div class="theme-preview-strip">
+            ${themeOptions().map((theme) => themePreviewCard(theme, group.theme, group.media?.[0])).join("")}
+          </div>
+        </section>
         <label>Calendar view${select("calendarRange", group.settings.calendarRange || "month", [["three-day", "3 Days"], ["week", "1 Week"], ["two-week", "2 Weeks"], ["month", "1 Month"]])}</label>
         <div class="split">
           <label>Weather City<input name="weatherLocation" value="${attr(group.settings.weatherLocation)}" placeholder="Chicago, IL" /></label>
@@ -212,6 +219,7 @@ function dashboardEditor(group) {
           <h2>Google / iCal Calendars</h2>
           <button class="secondary" data-action="add-calendar">Add Feed</button>
         </div>
+        ${calendarPaletteRecommendation(group)}
         <div class="stack" data-list="calendarFeeds">
           ${group.calendarFeeds.map((feed, index) => calendarRow(feed, index)).join("") || `<p class="muted">Paste a public Google Calendar iCal URL to show current and upcoming events.</p>`}
         </div>
@@ -366,8 +374,8 @@ function controlSurface(group) {
         <div>
           <h2>Theme</h2>
           <div class="control-buttons">
-            ${themeOptions().map(([key, label]) => `
-              <button class="${group.theme === key ? "primary" : "secondary"}" data-control-theme="${key}">${label}</button>
+            ${themeOptions().map((theme) => `
+              <button class="${group.theme === theme.id ? "primary" : "secondary"}" data-control-theme="${theme.id}">${theme.label}</button>
             `).join("")}
           </div>
         </div>
@@ -568,6 +576,7 @@ function weatherBoard() {
   }
   return `
     <section class="weather-board">
+      <div class="weather-art">${weatherIcon(state.weather.current.weather_code, state.weather.current.is_day)}</div>
       <span>${escapeHtml(state.weather.location)}</span>
       <strong>${Math.round(state.weather.current.temperature_2m)}°F</strong>
       <p>${escapeHtml(state.weather.summary)} · Feels like ${Math.round(state.weather.current.apparent_temperature)}°F · ${Math.round(state.weather.current.wind_speed_10m)} mph wind</p>
@@ -589,10 +598,13 @@ function triggerView(trigger) {
 function weatherTile() {
   if (!state.weather?.current) return `<div class="rail-tile"><small>Weather</small><strong>Loading</strong></div>`;
   return `
-    <div class="rail-tile">
-      <small>${escapeHtml(state.weather.location)}</small>
-      <strong>${Math.round(state.weather.current.temperature_2m)}°F</strong>
-      <span>${escapeHtml(state.weather.summary)} · ${Math.round(state.weather.current.wind_speed_10m)} mph</span>
+    <div class="rail-tile icon-tile weather-tile">
+      <div class="tile-art">${weatherIcon(state.weather.current.weather_code, state.weather.current.is_day)}</div>
+      <div>
+        <small>${escapeHtml(state.weather.location)}</small>
+        <strong>${Math.round(state.weather.current.temperature_2m)}°F</strong>
+        <span>${escapeHtml(state.weather.summary)} · ${Math.round(state.weather.current.wind_speed_10m)} mph</span>
+      </div>
     </div>
   `;
 }
@@ -639,13 +651,16 @@ function eventCard(event, featured = false) {
 function countdownsTile(countdowns) {
   const enabled = (countdowns || []).filter((timer) => timer.enabled).slice(0, 4);
   return `
-    <div class="rail-tile countdown-list">
+    <div class="rail-tile icon-tile countdown-list">
+      <div class="tile-art">${themeWidgetIcon(state.playerGroup?.theme)}</div>
+      <div>
       <small>Countdowns</small>
       ${enabled.map((timer) => {
         const diff = Date.now() - new Date(timer.target).getTime();
         const ms = timer.mode === "countup" ? Math.max(0, diff) : Math.max(0, -diff);
         return `<p><b>${escapeHtml(timer.name)}</b><span>${formatSmartDuration(ms)}</span></p>`;
       }).join("") || "<p>No active timers</p>"}
+      </div>
     </div>
   `;
 }
@@ -724,6 +739,14 @@ async function handleClick(event) {
     renderDashboard();
   }
   const action = event.target.closest("[data-action]")?.dataset.action;
+  const themeChoice = event.target.closest("[data-select-theme]");
+  if (themeChoice && state.activeGroup) {
+    state.activeGroup.theme = themeChoice.dataset.selectTheme;
+    markGroupChanged();
+    renderDashboard();
+    await saveActiveGroup();
+    flash("Theme selected. Recommended calendar colors are ready above the calendar list.");
+  }
   if (action === "new-group") {
     const result = await api("/api/groups", { method: "POST", body: { name: "New Signage Group" } });
     state.activeGroup = result.group;
@@ -746,6 +769,16 @@ async function handleClick(event) {
       flash(error.message);
     }
   }
+  if (action === "apply-theme-calendar-colors" && state.activeGroup) {
+    const palette = themePalette(state.activeGroup.theme);
+    state.activeGroup.calendarFeeds.forEach((feed, index) => {
+      feed.color = palette[index % palette.length];
+    });
+    markGroupChanged();
+    await saveActiveGroup();
+    renderDashboard();
+    flash("Recommended calendar colors applied.");
+  }
   if (action === "delete-group" && state.activeGroup && confirm("Delete this signage group?")) {
     await api(`/api/groups/${state.activeGroup.id}`, { method: "DELETE" });
     state.activeGroup = null;
@@ -761,7 +794,7 @@ async function handleClick(event) {
   if (controlTheme) await sendControl({ theme: controlTheme.dataset.controlTheme });
   const controlTrigger = event.target.closest("[data-control-trigger]");
   if (controlTrigger) await sendControl({ trigger: { type: controlTrigger.dataset.controlTrigger, durationSeconds: Number(controlTrigger.dataset.duration || 0) } });
-  if (action === "add-calendar") await mutateGroup((group) => group.calendarFeeds.push({ id: uid("cal"), name: "Calendar", url: "", color: calendarPalette(group.calendarFeeds.length), enabled: true }));
+  if (action === "add-calendar") await mutateGroup((group) => group.calendarFeeds.push({ id: uid("cal"), name: "Calendar", url: "", color: themePalette(group.theme)[group.calendarFeeds.length % themePalette(group.theme).length], enabled: true }));
   if (action === "add-countdown") await mutateGroup((group) => group.countdowns.push({ id: uid("cnt"), name: "Launch", mode: "countdown", target: new Date(Date.now() + 86400_000).toISOString(), enabled: true }));
   if (action === "add-blackout") await mutateGroup((group) => group.blackoutTimes.push({ id: uid("blk"), name: "Evening blackout", start: "22:00", end: "06:00", days: [0,1,2,3,4,5,6], enabled: true }));
   const trigger = event.target.closest("[data-trigger]");
@@ -935,7 +968,78 @@ function select(name, value, options, attrName = "name") {
 }
 
 function themeOptions() {
-  return [["graphite", "Graphite Glass"]];
+  return [
+    { id: "sun-bleached", label: "Beach House Sun Bleached", tagline: "Airy, light, and minimal with sun-bleached neutrals.", palette: ["#ecdcc6", "#d9c3a7", "#b6cad5", "#7f9fb0"] },
+    { id: "beach-house-sea-glass", label: "Beach House Sea Glass", tagline: "Soft, coastal, and breezy with sea glass blues.", palette: ["#b7d0d2", "#8fb2b6", "#6d8f9b", "#dce7e8"] },
+    { id: "coastal-gray", label: "Beach House Coastal Gray", tagline: "Timeless, calm, and refined with coastal grays.", palette: ["#cfd7dd", "#9aaab6", "#667f90", "#e6ecef"] },
+    { id: "coastal-fog", label: "Coastal Fog", tagline: "Cool, misty, and relaxed with soft coastal blues.", palette: ["#cfdbe1", "#a8bbc6", "#6e8c9f", "#eef3f5"] },
+    { id: "coastal-sand", label: "Coastal Sand", tagline: "Light and airy with soft neutrals and ocean accents.", palette: ["#8ad9e0", "#b6ddd2", "#ffd39a", "#cbc1d3"] },
+    { id: "beach-house", label: "Beach House", tagline: "Airy, sun-bleached, and coastal with sandy neutrals and ocean blues.", palette: ["#69c6d8", "#63b9cd", "#3f8fb3", "#2964a1"] },
+    { id: "sea-glass", label: "Sea Glass", tagline: "Cool, fresh, and tranquil with sea glass greens and soft aqua tones.", palette: ["#bde4db", "#89c7bb", "#559f9b", "#2f7b7c"] },
+    { id: "coastal-navy", label: "Coastal Navy", tagline: "Nautical and timeless with deep navy, crisp white, and ocean accents.", palette: ["#f5f7fb", "#6ba7d4", "#3f82bd", "#16528c"] },
+    { id: "coral-coast", label: "Coral Coast", tagline: "Warm, vibrant, and tropical with coral tones and sandy neutrals.", palette: ["#ffb39d", "#ff907f", "#f8756b", "#e85f58"] },
+    { id: "graphite", label: "Graphite Glass", tagline: "Dark glass with crisp contrast and cool neutral accents.", palette: ["#bfc9d2", "#8aa2b1", "#617886", "#3d4a54"] }
+  ];
+}
+
+function selectedTheme(id) {
+  return themeOptions().find((theme) => theme.id === id) || themeOptions()[0];
+}
+
+function themePalette(id) {
+  return selectedTheme(id).palette;
+}
+
+function themePreviewCard(theme, current, media) {
+  const image = mediaUrl(media);
+  return `
+    <button class="theme-card ${theme.id === current ? "selected" : ""}" type="button" data-select-theme="${theme.id}">
+      <span class="theme-shot ${image ? "has-image" : ""}" style="--preview-a:${attr(theme.palette[0])};--preview-b:${attr(theme.palette[1])};${image ? `--preview-image:url('${attr(image)}')` : ""}">
+        <i></i><b></b><em></em>
+      </span>
+      <strong>${escapeHtml(theme.label)}</strong>
+      <small>${escapeHtml(theme.tagline)}</small>
+      <span class="theme-swatches">${theme.palette.map((color) => `<i style="--swatch:${attr(color)}"></i>`).join("")}</span>
+    </button>
+  `;
+}
+
+function calendarPaletteRecommendation(group) {
+  const theme = selectedTheme(group.theme);
+  return `
+    <div class="palette-recommendation">
+      <div>
+        <small>Recommended calendar colors for ${escapeHtml(theme.label)}</small>
+        <span>${theme.palette.map((color) => `<i style="--swatch:${attr(color)}"></i>`).join("")}</span>
+      </div>
+      <button class="secondary" type="button" data-action="apply-theme-calendar-colors">Apply Colors</button>
+    </div>
+  `;
+}
+
+function weatherIcon(code, isDay = 1) {
+  const value = Number(code);
+  if ([95, 96, 99].includes(value)) return `<span class="weather-glyph storm">ϟ</span>`;
+  if ([61, 63, 65, 80, 81, 82, 51, 53, 55].includes(value)) return `<span class="weather-glyph rain">☔</span>`;
+  if ([71, 73, 75, 77, 85, 86].includes(value)) return `<span class="weather-glyph snow">❄</span>`;
+  if ([2, 3, 45, 48].includes(value)) return `<span class="weather-glyph cloud">☁</span>`;
+  return `<span class="weather-glyph ${isDay ? "sun" : "moon"}">${isDay ? "☼" : "☾"}</span>`;
+}
+
+function themeWidgetIcon(themeId) {
+  const map = {
+    "sun-bleached": "⌁",
+    "beach-house-sea-glass": "◌",
+    "coastal-gray": "⌂",
+    "coastal-fog": "≈",
+    "coastal-sand": "◔",
+    "beach-house": "⌇",
+    "sea-glass": "✦",
+    "coastal-navy": "⚓",
+    "coral-coast": "✹",
+    graphite: "◆"
+  };
+  return `<span class="widget-glyph">${map[themeId] || "◆"}</span>`;
 }
 
 function fileToDataUrl(file) {
