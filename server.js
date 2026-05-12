@@ -53,7 +53,7 @@ const server = http.createServer(async (req, res) => {
     await routeStatic(req, res, url);
   } catch (error) {
     console.error(error);
-    sendJson(res, 500, { error: "Something went wrong." });
+    sendJson(res, error.statusCode || 500, { error: error.publicMessage || "Something went wrong." });
   }
 });
 
@@ -651,13 +651,20 @@ async function uploadMediaDataUrl(groupId, item) {
   const storagePath = `groups/${groupId}/media/${item.id}-${safeName}.${ext}`;
   const token = crypto.randomUUID();
   const file = firebase.storage.file(storagePath);
-  await file.save(buffer, {
-    resumable: false,
-    metadata: {
-      contentType: mimeType,
-      metadata: { firebaseStorageDownloadTokens: token }
-    }
-  });
+  try {
+    await file.save(buffer, {
+      resumable: false,
+      metadata: {
+        contentType: mimeType,
+        metadata: { firebaseStorageDownloadTokens: token }
+      }
+    });
+  } catch (error) {
+    const uploadError = new Error(error.message);
+    uploadError.statusCode = 503;
+    uploadError.publicMessage = "Firebase Storage is not ready for image uploads. Create the Storage bucket in Firebase, then try again.";
+    throw uploadError;
+  }
   const encodedPath = encodeURIComponent(storagePath);
   return {
     url: `https://firebasestorage.googleapis.com/v0/b/${firebase.storage.name}/o/${encodedPath}?alt=media&token=${token}`,

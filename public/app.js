@@ -736,8 +736,14 @@ async function handleChange(event) {
       state.activeGroup.media.push({ id: uid("img"), name: file.name, dataUrl, durationSeconds: 12 });
     }
     markGroupChanged();
-    await saveActiveGroup();
     renderDashboard();
+    try {
+      await saveActiveGroup();
+      flash("Images saved.");
+      renderDashboard();
+    } catch (error) {
+      flash(error.message);
+    }
   }
   handleInput(event);
   if (event.target.dataset.field) await saveActiveGroup();
