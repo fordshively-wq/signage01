@@ -264,6 +264,7 @@ async function updateGroup(req, res, groupId) {
   if (!group) return sendJson(res, 404, { error: "Group not found." });
   const body = await readJson(req);
   const incoming = sanitizeGroup(body.group || {});
+  await persistMediaAssets(incoming, group.id);
   Object.assign(group, incoming, {
     id: group.id,
     ownerId: group.ownerId,
@@ -280,7 +281,8 @@ async function deleteGroup(req, res, groupId) {
   if (!auth) return;
   const index = auth.db.groups.findIndex((group) => group.id === groupId && group.ownerId === auth.user.id);
   if (index === -1) return sendJson(res, 404, { error: "Group not found." });
-  auth.db.groups.splice(index, 1);
+  const [deleted] = auth.db.groups.splice(index, 1);
+  await deleteGroupFromFirestore(deleted);
   writeDb(auth.db);
   sendJson(res, 200, { ok: true });
 }
@@ -492,7 +494,10 @@ function sanitizeGroup(raw) {
   safe.media = array(raw.media).slice(0, 20).map((item) => ({
     id: String(item.id || id("img")).slice(0, 40),
     name: String(item.name || "Image").trim().slice(0, 100),
-    dataUrl: String(item.dataUrl || "").startsWith("data:image/") ? String(item.dataUrl).slice(0, 2_500_000) : "",
+    dataUrl: mediaSource(item.dataUrl),
+    storagePath: String(item.storagePath || "").trim().slice(0, 500),
+    mimeType: String(item.mimeType || "").trim().slice(0, 80),
+    size: Number.isFinite(Number(item.size)) ? Number(item.size) : 0,
     durationSeconds: clamp(Number(item.durationSeconds || 12), 3, 120)
   })).filter((item) => item.dataUrl);
   safe.countdowns = array(raw.countdowns).slice(0, 12).map((timer) => ({
@@ -612,6 +617,55 @@ function cleanIcs(value) {
   return String(value).replace(/\\n/g, " ").replace(/\\,/g, ",").replace(/\\/g, "").trim();
 }
 
+function mediaSource(value) {
+  const source = String(value || "").trim();
+  if (source.startsWith("data:image/")) return source.slice(0, 8_000_000);
+  if (/^https:\/\/.+/i.test(source)) return source.slice(0, 1000);
+  return "";
+}
+
+async function persistMediaAssets(group, groupId) {
+  if (!firebase.storage) return;
+  for (const item of group.media || []) {
+    if (!item.dataUrl.startsWith("data:image/")) continue;
+    const uploaded = await uploadMediaDataUrl(groupId, item);
+    item.dataUrl = uploaded.url;
+    item.storagePath = uploaded.storagePath;
+    item.mimeType = uploaded.mimeType;
+    item.size = uploaded.size;
+  }
+}
+
+async function uploadMediaDataUrl(groupId, item) {
+  const match = item.dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) throw new Error("Invalid image upload.");
+  const [, mimeType, base64] = match;
+  const buffer = Buffer.from(base64, "base64");
+  const ext = mimeExtension(mimeType);
+  const safeName = String(item.name || item.id).replace(/[^a-z0-9._-]+/gi, "-").slice(0, 80) || item.id;
+  const storagePath = `groups/${groupId}/media/${item.id}-${safeName}.${ext}`;
+  const token = crypto.randomUUID();
+  const file = firebase.storage.file(storagePath);
+  await file.save(buffer, {
+    resumable: false,
+    metadata: {
+      contentType: mimeType,
+      metadata: { firebaseStorageDownloadTokens: token }
+    }
+  });
+  const encodedPath = encodeURIComponent(storagePath);
+  return {
+    url: `https://firebasestorage.googleapis.com/v0/b/${firebase.storage.name}/o/${encodedPath}?alt=media&token=${token}`,
+    storagePath,
+    mimeType,
+    size: buffer.length
+  };
+}
+
+function mimeExtension(mimeType) {
+  return ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/svg+xml": "svg" }[mimeType] || "img");
+}
+
 function calendarColor(value, index = 0) {
   const palette = ["#41d6b3", "#f2b84b", "#7da8ff", "#ff7a90", "#9be564", "#c084fc", "#5ee7ff", "#ff9f68"];
   return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : palette[index % palette.length];
@@ -686,15 +740,22 @@ function writeDb(db) {
 function initFirebase() {
   try {
     const admin = require("firebase-admin");
-    if (admin.apps.length) return { admin, firestore: admin.firestore() };
+    if (admin.apps.length) return { admin, firestore: admin.firestore(), storage: firebaseStorageBucket(admin) };
     const credential = firebaseCredential(admin);
     if (!credential) return { admin: null, firestore: null };
-    admin.initializeApp({ credential });
-    return { admin, firestore: admin.firestore() };
+    admin.initializeApp({
+      credential,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || undefined
+    });
+    return { admin, firestore: admin.firestore(), storage: firebaseStorageBucket(admin) };
   } catch (error) {
     console.warn("Firebase Admin disabled:", error.message);
-    return { admin: null, firestore: null };
+    return { admin: null, firestore: null, storage: null };
   }
+}
+
+function firebaseStorageBucket(admin) {
+  return process.env.FIREBASE_STORAGE_BUCKET ? admin.storage().bucket() : null;
 }
 
 function firebaseCredential(admin) {
@@ -740,6 +801,14 @@ async function syncDbToFirestore(db) {
     batch.set(firebase.firestore.collection("groups").doc(group.id), group, { merge: true });
     batch.set(firebase.firestore.collection("codes").doc(group.code), { groupId: group.id, code: group.code }, { merge: true });
   }
+  await batch.commit();
+}
+
+async function deleteGroupFromFirestore(group) {
+  if (!firebase.firestore || !group) return;
+  const batch = firebase.firestore.batch();
+  batch.delete(firebase.firestore.collection("groups").doc(group.id));
+  if (group.code) batch.delete(firebase.firestore.collection("codes").doc(group.code));
   await batch.commit();
 }
 
