@@ -190,7 +190,7 @@ function dashboardEditor(group) {
             ${themeOptions().map((theme) => themePreviewCard(theme, group.theme, group.media?.[0])).join("")}
           </div>
         </section>
-        <label>Calendar view${select("calendarRange", group.settings.calendarRange || "month", [["three-day", "3 Days"], ["week", "1 Week"], ["two-week", "2 Weeks"], ["month", "1 Month"]])}</label>
+        <label>Calendar view${select("calendarRange", group.settings.calendarRange || "month", [["one-day", "1 Day"], ["three-day", "3 Days"], ["week", "1 Week"], ["two-week", "2 Weeks"], ["month", "1 Month"]])}</label>
         <div class="split">
           <label>Weather City<input name="weatherLocation" value="${attr(group.settings.weatherLocation)}" placeholder="Chicago, IL" /></label>
           <label>Weather ZIP<input name="weatherZip" inputmode="numeric" maxlength="5" value="${attr(group.settings.weatherZip || "")}" placeholder="10001" /></label>
@@ -577,29 +577,33 @@ function calendarBoard() {
   const today = new Date();
   const range = state.playerGroup?.settings?.calendarRange || "month";
   const cells = calendarCells(today, range);
+  const calendarDates = cells.filter(Boolean);
+  const timed = ["one-day", "three-day", "week"].includes(range);
   const weekdays = range === "month"
     ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    : cells.filter(Boolean).slice(0, range === "three-day" ? 3 : 7).map((date) => formatWeekday(date));
+    : calendarDates.slice(0, range === "one-day" ? 1 : range === "three-day" ? 3 : 7).map((date) => formatWeekday(date));
   const title = range === "month"
     ? new Intl.DateTimeFormat([], { month: "long", year: "numeric" }).format(today)
-    : calendarRangeTitle(cells.filter(Boolean), range);
+    : calendarRangeTitle(calendarDates, range);
   return `
     <section class="calendar-board range-${range}">
       <header>
         <span>${formatDate()}</span>
         <strong>${title}</strong>
       </header>
-      <div class="calendar-weekdays">${weekdays.map((day) => `<b>${day}</b>`).join("")}</div>
-      <div class="calendar-grid">
-        ${cells.map((date) => calendarCell(date, today)).join("")}
-      </div>
+      ${timed ? timedCalendarBoard(calendarDates, weekdays, today) : `
+        <div class="calendar-weekdays">${weekdays.map((day) => `<b>${day}</b>`).join("")}</div>
+        <div class="calendar-grid">
+          ${cells.map((date) => calendarCell(date, today)).join("")}
+        </div>
+      `}
     </section>
   `;
 }
 
 function calendarCells(today, range) {
   if (range !== "month") {
-    const total = range === "three-day" ? 3 : range === "week" ? 7 : 14;
+    const total = range === "one-day" ? 1 : range === "three-day" ? 3 : range === "week" ? 7 : 14;
     return Array.from({ length: total }, (_, index) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + index));
   }
   const year = today.getFullYear();
@@ -612,6 +616,55 @@ function calendarCells(today, range) {
   for (let day = 1; day <= days; day += 1) cells.push(new Date(year, month, day));
   while (cells.length % 7) cells.push(null);
   return cells;
+}
+
+function timedCalendarBoard(dates, weekdays, today) {
+  const hours = [0, 3, 6, 9, 12, 15, 18, 21, 24];
+  return `
+    <div class="timed-calendar" style="--schedule-days:${Math.max(1, dates.length)}">
+      <div class="schedule-head">
+        <span></span>
+        ${dates.map((date, index) => `<b class="${sameDay(date, today) ? "today" : ""}">${weekdays[index]} <em>${formatCalendarCellDate(date)}</em></b>`).join("")}
+      </div>
+      <div class="schedule-body">
+        <div class="schedule-hours">${hours.map((hour, index) => `<span style="--tick:${index / (hours.length - 1) * 100}%">${formatHourLabel(hour)}</span>`).join("")}</div>
+        <div class="schedule-days">
+          ${dates.map((date) => timedScheduleDay(date)).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function timedScheduleDay(date) {
+  const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayEnd = dayStart + 86400_000;
+  const events = state.events.filter((event) => {
+    const start = new Date(event.start).getTime();
+    const end = new Date(event.end).getTime();
+    return start < dayEnd && end > dayStart;
+  });
+  return `
+    <div class="schedule-day">
+      ${Array.from({ length: 8 }, (_, index) => `<i style="--line:${index / 8 * 100}%"></i>`).join("")}
+      ${events.map((event) => timedScheduleEvent(event, dayStart, dayEnd)).join("")}
+    </div>
+  `;
+}
+
+function timedScheduleEvent(event, dayStart, dayEnd) {
+  const start = Math.max(dayStart, new Date(event.start).getTime());
+  const end = Math.min(dayEnd, new Date(event.end).getTime());
+  const dayMs = dayEnd - dayStart;
+  const top = ((start - dayStart) / dayMs) * 100;
+  const height = Math.max(((Math.max(end, start + 900_000) - start) / dayMs) * 100, 1.4);
+  return `
+    <article class="schedule-event" style="--event-color:${attr(event.feedColor || "#41d6b3")};--event-top:${top.toFixed(3)}%;--event-height:${height.toFixed(3)}%">
+      <b>${formatShortTime(event.start)}-${formatShortTime(event.end)}</b>
+      <strong>${escapeHtml(event.title)}</strong>
+      <span>${escapeHtml(event.feedName || "Calendar")}</span>
+    </article>
+  `;
 }
 
 function calendarCell(date, today) {
@@ -1169,8 +1222,15 @@ function formatCalendarCellDate(value) {
 function calendarRangeTitle(dates, range) {
   const first = dates[0] || new Date();
   const last = dates[dates.length - 1] || first;
-  const prefix = range === "three-day" ? "3 Days" : range === "week" ? "1 Week" : "2 Weeks";
+  const prefix = range === "one-day" ? "1 Day" : range === "three-day" ? "3 Days" : range === "week" ? "1 Week" : "2 Weeks";
+  if (range === "one-day") return `${prefix} · ${new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(first)}`;
   return `${prefix} · ${new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(first)} - ${new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(last)}`;
+}
+
+function formatHourLabel(hour) {
+  if (hour === 24) return "12 AM";
+  const date = new Date(2026, 0, 1, hour % 24, 0);
+  return new Intl.DateTimeFormat([], { hour: "numeric" }).format(date);
 }
 
 function sameDay(a, b) {

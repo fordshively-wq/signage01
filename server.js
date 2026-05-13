@@ -315,7 +315,7 @@ async function controlGroup(req, res, code) {
   if (typeof body.showMediaBanner === "boolean") group.settings.showMediaBanner = body.showMediaBanner;
   if (typeof body.showSeconds === "boolean") group.settings.showSeconds = body.showSeconds;
   if (Number.isFinite(Number(body.overlayOpacity))) group.settings.overlayOpacity = clamp(Number(body.overlayOpacity), 0, 90);
-  if (["three-day", "week", "two-week", "month"].includes(body.calendarRange)) group.settings.calendarRange = body.calendarRange;
+  if (["one-day", "three-day", "week", "two-week", "month"].includes(body.calendarRange)) group.settings.calendarRange = body.calendarRange;
   if (body.trigger && typeof body.trigger === "object") {
     applyTrigger(group, body.trigger);
   }
@@ -481,7 +481,7 @@ function sanitizeGroup(raw) {
     showMediaBanner: raw.settings?.showMediaBanner !== false,
     showSeconds: Boolean(raw.settings?.showSeconds),
     overlayOpacity: clamp(Number(raw.settings?.overlayOpacity ?? 58), 0, 90),
-    calendarRange: ["three-day", "week", "two-week", "month"].includes(raw.settings?.calendarRange) ? raw.settings.calendarRange : "month"
+    calendarRange: ["one-day", "three-day", "week", "two-week", "month"].includes(raw.settings?.calendarRange) ? raw.settings.calendarRange : "month"
   };
   safe.modules = {
     clock: Boolean(raw.modules?.clock),

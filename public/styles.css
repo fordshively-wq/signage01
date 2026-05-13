@@ -935,6 +935,87 @@ code,
 
 .layout-calendar .player-rail {
   grid-template-columns: 1fr;
+  gap: 10px;
+  padding: clamp(12px, 1.2vw, 20px);
+}
+
+.layout-calendar .rail-tile {
+  padding: clamp(12px, 1vw, 16px);
+}
+
+.layout-calendar .rail-tile strong {
+  font-size: clamp(22px, 7cqw, 36px);
+}
+
+.layout-calendar .time-tile span {
+  font-size: clamp(24px, 11cqw, 52px);
+}
+
+.layout-calendar .time-tile.with-seconds span {
+  font-size: clamp(20px, 8.8cqw, 42px);
+}
+
+.layout-calendar .primary-events > small {
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.layout-calendar .event-card {
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 0 10px 10px;
+}
+
+.layout-calendar .event-card.featured {
+  padding: 12px;
+}
+
+.layout-calendar .event-date {
+  min-height: 54px;
+}
+
+.layout-calendar .event-date b,
+.layout-calendar .event-meta {
+  font-size: 11px;
+}
+
+.layout-calendar .event-date strong {
+  font-size: 24px;
+}
+
+.layout-calendar .event-body h3,
+.layout-calendar .event-card:not(.featured) .event-body h3 {
+  margin-top: 4px;
+  font-size: clamp(15px, 1vw, 22px);
+  overflow-wrap: anywhere;
+}
+
+.layout-calendar .event-body p,
+.layout-calendar .event-body em {
+  font-size: 12px;
+}
+
+.layout-calendar .icon-tile {
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.layout-calendar .tile-art {
+  width: 58px;
+  height: 58px;
+}
+
+.layout-calendar .weather-glyph,
+.layout-calendar .widget-glyph {
+  font-size: 34px;
+}
+
+.layout-calendar .countdown-list p b {
+  font-size: clamp(15px, 1vw, 20px);
+}
+
+.layout-calendar .countdown-list p span {
+  font-size: clamp(22px, 7cqw, 34px);
 }
 
 .layout-weather .player-main {
@@ -1012,6 +1093,12 @@ code,
   font-weight: 800;
 }
 
+.calendar-board.range-one-day,
+.calendar-board.range-three-day,
+.calendar-board.range-week {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .calendar-board header {
   display: flex;
   justify-content: space-between;
@@ -1044,6 +1131,11 @@ code,
 .calendar-board.range-three-day .calendar-weekdays,
 .calendar-board.range-three-day .calendar-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.calendar-board.range-one-day .calendar-weekdays,
+.calendar-board.range-one-day .calendar-grid {
+  grid-template-columns: 1fr;
 }
 
 .calendar-board.range-three-day .calendar-grid {
@@ -1101,7 +1193,7 @@ code,
   margin: 5px 0 0;
   display: flex;
   gap: 6px;
-  align-items: center;
+  align-items: flex-start;
   color: var(--signage-text);
   font-size: clamp(10px, 0.9vw, 14px);
   line-height: 1.15;
@@ -1114,6 +1206,130 @@ code,
   height: 7px;
   border-radius: 50%;
   background: var(--event-color);
+  margin-top: 0.38em;
+}
+
+.timed-calendar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.schedule-head {
+  display: grid;
+  grid-template-columns: 62px repeat(var(--schedule-days), minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.schedule-head b {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--signage-line);
+  border-radius: 8px;
+  color: var(--signage-muted);
+  background: var(--signage-card);
+  font-size: clamp(12px, 0.95vw, 16px);
+  text-transform: uppercase;
+}
+
+.schedule-head b.today {
+  border-color: var(--signage-accent);
+}
+
+.schedule-head em {
+  color: var(--signage-text);
+  font-size: clamp(14px, 1.15vw, 20px);
+  font-style: normal;
+  text-transform: none;
+}
+
+.schedule-body {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+}
+
+.schedule-hours {
+  position: relative;
+  min-height: 0;
+}
+
+.schedule-hours span {
+  position: absolute;
+  top: var(--tick);
+  right: 0;
+  color: var(--signage-muted);
+  font-size: clamp(10px, 0.72vw, 13px);
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.schedule-hours span:last-child {
+  transform: translateY(-100%);
+}
+
+.schedule-days {
+  display: grid;
+  grid-template-columns: repeat(var(--schedule-days), minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+}
+
+.schedule-day {
+  position: relative;
+  min-height: 0;
+  border: 1px solid var(--signage-line);
+  border-radius: 8px;
+  background: var(--signage-card);
+  overflow: hidden;
+}
+
+.schedule-day > i {
+  position: absolute;
+  top: var(--line);
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--signage-line) 82%, transparent);
+}
+
+.schedule-event {
+  position: absolute;
+  top: var(--event-top);
+  left: 8px;
+  right: 8px;
+  height: max(var(--event-height), 34px);
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 7px 9px;
+  border-left: 5px solid var(--event-color);
+  border-radius: 7px;
+  color: var(--signage-text);
+  background: color-mix(in srgb, var(--event-color) 20%, var(--signage-card));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.schedule-event b,
+.schedule-event span {
+  color: var(--signage-muted);
+  font-size: clamp(9px, 0.62vw, 12px);
+  line-height: 1;
+}
+
+.schedule-event strong {
+  color: var(--signage-text);
+  font-size: clamp(11px, 0.86vw, 16px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 
 .weather-board {
