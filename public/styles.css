@@ -872,11 +872,12 @@ code,
 
 .trigger-display span,
 .trigger-display p {
-  color: rgba(255, 255, 255, 0.76);
+  color: #fff;
   margin: 0;
 }
 
 .trigger-display strong {
+  color: #fff;
   display: block;
   max-width: 100%;
   font-size: clamp(54px, 22cqw, 150px);
@@ -1424,6 +1425,27 @@ code,
 .rail-tile small,
 .rail-tile span {
   color: var(--signage-muted);
+}
+
+.weather-tile,
+.countdown-list {
+  color: var(--signage-text);
+}
+
+.weather-tile small,
+.countdown-list small {
+  color: var(--signage-muted);
+}
+
+.weather-tile strong,
+.countdown-list p span {
+  color: var(--signage-accent);
+}
+
+.weather-tile span,
+.countdown-list p,
+.countdown-list p b {
+  color: var(--signage-text);
 }
 
 .rail-tile strong {
