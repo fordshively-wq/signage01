@@ -10,8 +10,10 @@ const state = {
   groupRevision: 0,
   toast: "",
   wakeLock: null,
-  wakeLockWanted: false
+  wakeLockWanted: false,
+  playerRefreshTimer: null
 };
+const DISPLAY_CODE_STORAGE_KEY = "signalboard.displayCode";
 
 const $app = document.querySelector("#app");
 const routes = {
@@ -44,7 +46,10 @@ async function init() {
 
 async function route() {
   const path = location.pathname;
-  if (path !== "/player") releaseWakeLock();
+  if (path !== "/player") {
+    releaseWakeLock();
+    clearPlayerRefresh();
+  }
   const renderer = routes[path] || renderHome;
   await renderer();
 }
@@ -313,6 +318,13 @@ function blackoutRow(entry) {
 }
 
 function renderDisplayPair() {
+  const url = new URL(location.href);
+  if (url.searchParams.get("new") === "1") localStorage.removeItem(DISPLAY_CODE_STORAGE_KEY);
+  const rememberedCode = localStorage.getItem(DISPLAY_CODE_STORAGE_KEY);
+  if (rememberedCode && url.searchParams.get("new") !== "1") {
+    navigate(`/player?code=${encodeURIComponent(rememberedCode)}`);
+    return;
+  }
   $app.className = "pair-shell";
   $app.innerHTML = `
     <section class="pair-card">
@@ -411,23 +423,28 @@ function controlSurface(group) {
 }
 
 async function renderPlayer() {
-  const code = new URLSearchParams(location.search).get("code") || state.playerCode;
+  const code = new URLSearchParams(location.search).get("code") || state.playerCode || localStorage.getItem(DISPLAY_CODE_STORAGE_KEY);
   if (!code) return renderDisplayPair();
   state.playerCode = code.toUpperCase();
   state.wakeLockWanted = true;
   maintainWakeLock();
   try {
     state.playerGroup = (await api(`/api/player/${state.playerCode}`)).group;
+    localStorage.setItem(DISPLAY_CODE_STORAGE_KEY, state.playerCode);
     state.events = [];
     state.weather = null;
     drawPlayer();
     maintainWakeLock();
     refreshPlayerData(true).then(drawPlayer).catch(() => drawPlayer());
   } catch (error) {
+    if (localStorage.getItem(DISPLAY_CODE_STORAGE_KEY) === state.playerCode) {
+      localStorage.removeItem(DISPLAY_CODE_STORAGE_KEY);
+    }
     flash(error.message);
     return renderDisplayPair();
   }
-  setInterval(async () => {
+  clearPlayerRefresh();
+  state.playerRefreshTimer = setInterval(async () => {
     if (location.pathname === "/player") {
       try {
         state.playerGroup = (await api(`/api/player/${state.playerCode}`, { quiet: true })).group;
@@ -436,6 +453,12 @@ async function renderPlayer() {
       } catch {}
     }
   }, 15000);
+}
+
+function clearPlayerRefresh() {
+  if (!state.playerRefreshTimer) return;
+  clearInterval(state.playerRefreshTimer);
+  state.playerRefreshTimer = null;
 }
 
 async function maintainWakeLock() {
