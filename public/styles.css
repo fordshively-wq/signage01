@@ -1693,6 +1693,20 @@ code,
     grid-template-rows: minmax(0, 52fr) minmax(0, 48fr);
   }
 
+  .layout-command.player-shell:not(.display-fill),
+  .layout-workshop.player-shell:not(.display-fill),
+  .layout-weather.player-shell:not(.display-fill) {
+    grid-template-rows: minmax(0, 36fr) minmax(0, 64fr);
+  }
+
+  .layout-media.player-shell:not(.display-fill) {
+    grid-template-rows: minmax(0, 50fr) minmax(0, 50fr);
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) {
+    grid-template-rows: minmax(0, 72fr) minmax(0, 28fr);
+  }
+
   .player-shell:not(.display-fill) .player-main {
     grid-column: 1;
     grid-row: 1;
@@ -1713,6 +1727,135 @@ code,
     grid-template-columns: 1fr;
     align-content: start;
     overflow: hidden;
+  }
+
+  .layout-command.player-shell:not(.display-fill) .player-rail,
+  .layout-workshop.player-shell:not(.display-fill) .player-rail,
+  .layout-weather.player-shell:not(.display-fill) .player-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(10px, 2vw, 16px);
+  }
+
+  .layout-command.player-shell:not(.display-fill) .primary-events,
+  .layout-workshop.player-shell:not(.display-fill) .primary-events,
+  .layout-weather.player-shell:not(.display-fill) .primary-events {
+    grid-column: 1 / -1;
+  }
+
+  .layout-media.player-shell:not(.display-fill) .player-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .player-main {
+    padding: clamp(10px, 2.4vw, 18px);
+    align-content: stretch;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .calendar-board {
+    height: 100%;
+    gap: 8px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .calendar-board header strong {
+    font-size: clamp(30px, 8vw, 76px);
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .calendar-board header span {
+    font-size: clamp(12px, 2vw, 18px);
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .timed-calendar,
+  .layout-calendar.player-shell:not(.display-fill) .schedule-body,
+  .layout-calendar.player-shell:not(.display-fill) .schedule-days,
+  .layout-calendar.player-shell:not(.display-fill) .schedule-day {
+    min-height: 0;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .schedule-head {
+    grid-template-columns: 44px repeat(var(--schedule-days), minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .schedule-body {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .schedule-days {
+    gap: 5px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .schedule-event {
+    left: 5px;
+    right: 5px;
+    padding: 5px 7px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .player-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .time-tile {
+    grid-column: 1 / -1;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .primary-events {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 8px;
+    align-content: start;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .primary-events > small {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .event-card {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 7px;
+    padding: 7px 0 7px 8px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .event-date {
+    min-height: 42px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .event-date strong {
+    font-size: 18px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .event-date b,
+  .layout-calendar.player-shell:not(.display-fill) .event-meta {
+    font-size: 9px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .event-body h3,
+  .layout-calendar.player-shell:not(.display-fill) .event-card:not(.featured) .event-body h3 {
+    font-size: clamp(12px, 2.2vw, 17px);
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .event-body p,
+  .layout-calendar.player-shell:not(.display-fill) .event-body em {
+    display: none;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .icon-tile {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .tile-art {
+    width: 44px;
+    height: 44px;
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .weather-glyph,
+  .layout-calendar.player-shell:not(.display-fill) .widget-glyph {
+    font-size: 27px;
   }
 
   .player-shell:not(.display-fill) .player-copy h1 {
@@ -1737,11 +1880,23 @@ code,
     padding: clamp(12px, 3vw, 18px);
   }
 
+  .layout-calendar.player-shell:not(.display-fill) .rail-tile {
+    padding: 9px;
+  }
+
   .player-shell:not(.display-fill) .time-tile span {
     font-size: clamp(34px, 18cqw, 84px);
   }
 
   .player-shell:not(.display-fill) .time-tile.with-seconds span {
     font-size: clamp(26px, 13cqw, 62px);
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .time-tile span {
+    font-size: clamp(24px, 9cqw, 44px);
+  }
+
+  .layout-calendar.player-shell:not(.display-fill) .time-tile.with-seconds span {
+    font-size: clamp(20px, 7cqw, 36px);
   }
 }
