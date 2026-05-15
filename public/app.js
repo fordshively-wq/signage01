@@ -1,7 +1,10 @@
 const state = {
   user: null,
   groups: [],
+  displays: [],
   activeGroup: null,
+  activeDisplay: null,
+  dashboardTab: "screens",
   playerGroup: null,
   playerCode: "",
   events: [],
@@ -120,42 +123,77 @@ async function renderHome() {
 
 async function renderDashboard() {
   if (!state.user) return renderHome();
-  const data = await api("/api/groups");
-  state.groups = data.groups;
+  const [groupData, displayData] = await Promise.all([api("/api/groups"), api("/api/displays")]);
+  state.groups = groupData.groups;
+  state.displays = displayData.displays;
   if (!state.activeGroup && state.groups[0]) {
     state.activeGroup = (await api(`/api/groups/${state.groups[0].id}`)).group;
   }
   if (state.activeGroup && !state.groups.some((group) => group.id === state.activeGroup.id)) {
     state.activeGroup = null;
   }
+  if (!state.activeDisplay && state.displays[0]) {
+    state.activeDisplay = (await api(`/api/displays/${state.displays[0].id}`)).display;
+  }
+  if (state.activeDisplay && !state.displays.some((display) => display.id === state.activeDisplay.id)) {
+    state.activeDisplay = null;
+  }
   $app.className = "dashboard-shell";
+  const showingDisplays = state.dashboardTab === "displays";
   $app.innerHTML = `
     <aside class="sidebar">
       <button class="brand" data-nav="/">SignalBoard</button>
-      <button class="primary full" data-action="new-group">New Group</button>
+      <div class="dashboard-tabs">
+        <button class="${!showingDisplays ? "active" : ""}" data-dashboard-tab="screens">Screen Designs</button>
+        <button class="${showingDisplays ? "active" : ""}" data-dashboard-tab="displays">Displays</button>
+      </div>
+      <button class="primary full" data-action="${showingDisplays ? "new-display" : "new-group"}">${showingDisplays ? "New Display" : "New Screen Design"}</button>
       <div class="group-list">
-        ${state.groups.map((group) => `
-          <button class="group-pill ${state.activeGroup?.id === group.id ? "active" : ""}" data-group-id="${group.id}">
-            <span>${escapeHtml(group.name)}</span>
-            <code>${group.code}</code>
-          </button>
-        `).join("") || `<p class="muted">Create your first group to start pairing screens.</p>`}
+        ${showingDisplays ? displayList() : groupList()}
       </div>
       <button class="ghost full" data-action="logout">Sign Out</button>
     </aside>
     <section class="workspace">
-      ${state.activeGroup ? dashboardEditor(state.activeGroup) : emptyDashboard()}
+      ${showingDisplays ? (state.activeDisplay ? displayEditor(state.activeDisplay) : emptyDisplays()) : (state.activeGroup ? dashboardEditor(state.activeGroup) : emptyDashboard())}
     </section>
     ${toast()}
   `;
 }
 
+function groupList() {
+  return state.groups.map((group) => `
+    <button class="group-pill ${state.activeGroup?.id === group.id ? "active" : ""}" data-group-id="${group.id}">
+      <span>${escapeHtml(group.name)}</span>
+      <small>${escapeHtml(group.layout)}</small>
+    </button>
+  `).join("") || `<p class="muted">Create your first screen design. Displays can schedule it after that.</p>`;
+}
+
+function displayList() {
+  return state.displays.map((display) => `
+    <button class="group-pill ${state.activeDisplay?.id === display.id ? "active" : ""}" data-display-id="${display.id}">
+      <span>${escapeHtml(display.name)}</span>
+      <code>${display.code}</code>
+    </button>
+  `).join("") || `<p class="muted">Create a display to get a code for a physical screen.</p>`;
+}
+
 function emptyDashboard() {
   return `
     <div class="empty-state">
-      <h1>No signage groups yet</h1>
-      <p>Create a group, then use its code on any display at <strong>/display</strong>.</p>
-      <button class="primary" data-action="new-group">Create Group</button>
+      <h1>No screen designs yet</h1>
+      <p>Create a reusable design with calendars, media, widgets, and timers. Then schedule it on a display.</p>
+      <button class="primary" data-action="new-group">Create Screen Design</button>
+    </div>
+  `;
+}
+
+function emptyDisplays() {
+  return `
+    <div class="empty-state">
+      <h1>No displays yet</h1>
+      <p>Create a physical display code, then schedule screen designs or blackout blocks for it.</p>
+      <button class="primary" data-action="new-display">Create Display</button>
     </div>
   `;
 }
@@ -164,8 +202,8 @@ function dashboardEditor(group) {
   return `
     <header class="workspace-header">
       <div>
-        <p class="eyebrow">Pairing code</p>
-        <h1>${escapeHtml(group.name)} <code class="pair-code">${group.code}</code></h1>
+        <p class="eyebrow">Screen design</p>
+        <h1>${escapeHtml(group.name)}</h1>
       </div>
       <div class="header-actions">
         <button class="secondary" data-open-player="${group.code}">Preview</button>
@@ -175,7 +213,7 @@ function dashboardEditor(group) {
 
     <div class="editor-grid">
       <form class="panel" data-action="save-group">
-        <h2>Group Setup</h2>
+        <h2>Screen Setup</h2>
         <label>Name<input name="name" value="${attr(group.name)}" /></label>
         <label>Headline<input name="headline" value="${attr(group.settings.headline)}" /></label>
         <label>Subheadline<input name="subheadline" value="${attr(group.settings.subheadline)}" /></label>
@@ -200,6 +238,8 @@ function dashboardEditor(group) {
           <label class="toggle"><input type="checkbox" name="showMediaBanner" ${group.settings.showMediaBanner !== false ? "checked" : ""} />Bottom media banner</label>
           <label class="toggle"><input type="checkbox" name="showSeconds" ${group.settings.showSeconds ? "checked" : ""} />Show clock seconds</label>
         </div>
+        <label>Google Slides link<input name="googleSlidesUrl" value="${attr(group.settings.googleSlidesUrl || "")}" placeholder="https://docs.google.com/presentation/d/..." /></label>
+        <label>Slides display mode${select("googleSlidesMode", group.settings.googleSlidesMode || "media", [["media", "Show in media area with widgets"], ["full", "Full-screen slides only"]])}</label>
         <label>Image overlay opacity <input name="overlayOpacity" type="range" min="0" max="90" value="${attr(group.settings.overlayOpacity ?? 58)}" /></label>
         <div class="module-grid">
           ${Object.entries(group.modules).map(([key, enabled]) => `
@@ -277,6 +317,59 @@ function dashboardEditor(group) {
           ${group.blackoutTimes.map(blackoutRow).join("") || `<p class="muted">Dim displays to black during scheduled quiet hours.</p>`}
         </div>
       </section>
+    </div>
+  `;
+}
+
+function displayEditor(display) {
+  return `
+    <header class="workspace-header">
+      <div>
+        <p class="eyebrow">Physical display group</p>
+        <h1>${escapeHtml(display.name)} <code class="pair-code">${display.code}</code></h1>
+      </div>
+      <div class="header-actions">
+        <button class="secondary" data-open-player="${display.code}">Preview</button>
+        <button class="danger" data-action="delete-display">Delete</button>
+      </div>
+    </header>
+
+    <div class="editor-grid">
+      <form class="panel wide" data-action="save-display">
+        <h2>Display Settings</h2>
+        <label>Name<input name="displayName" value="${attr(display.name)}" /></label>
+        <div class="display-code-card">
+          <span>Use this code on the signage screen</span>
+          <code>${display.code}</code>
+        </div>
+        <div class="split">
+          <label>Display Google Slides override<input name="displaySlidesUrl" value="${attr(display.settings?.googleSlidesUrl || "")}" placeholder="https://docs.google.com/presentation/d/..." /></label>
+          <label>Slides mode${select("displaySlidesMode", display.settings?.googleSlidesMode || "media", [["media", "Media area with widgets"], ["full", "Full-screen slides"]])}</label>
+        </div>
+        <div class="panel-head">
+          <h2>Daily Schedule</h2>
+          <button class="secondary" type="button" data-action="add-schedule">Add Schedule Block</button>
+        </div>
+        <div class="schedule-editor">
+          ${display.schedule.map(scheduleRow).join("") || `<p class="muted">Add schedule blocks to choose which screen design appears at different times.</p>`}
+        </div>
+        <button class="primary">Save Display Schedule</button>
+      </form>
+    </div>
+  `;
+}
+
+function scheduleRow(entry) {
+  const screenOptions = state.groups.map((group) => [group.id, group.name]);
+  return `
+    <div class="edit-row schedule-edit-row" data-schedule-id="${entry.id}">
+      <input data-field="schedule:name" value="${attr(entry.name)}" placeholder="Morning screen" />
+      ${select("schedule:type", entry.type, [["screen", "Screen design"], ["blackout", "Blackout"]], "data-field")}
+      ${select("schedule:groupId", entry.groupId, screenOptions.length ? screenOptions : [["", "No screen designs yet"]], "data-field")}
+      <input data-field="schedule:start" type="time" value="${attr(entry.start)}" />
+      <input data-field="schedule:end" type="time" value="${attr(entry.end)}" />
+      <label class="toggle"><input type="checkbox" data-field="schedule:enabled" ${entry.enabled ? "checked" : ""} />On</label>
+      <button class="icon" data-remove-schedule="${entry.id}" type="button">x</button>
     </div>
   `;
 }
@@ -524,6 +617,15 @@ function drawPlayer() {
     $app.innerHTML = `<div class="blackout-screen"></div>`;
     return;
   }
+  const slidesUrl = slidesEmbedUrl(group.settings.googleSlidesUrl);
+  if (slidesUrl && group.settings.googleSlidesMode === "full") {
+    $app.className = `player-shell slides-only theme-${group.theme}`;
+    $app.innerHTML = `
+      ${slidesFrame(slidesUrl)}
+      <button class="fullscreen-button" data-action="fullscreen" title="Fullscreen">⛶</button>
+    `;
+    return;
+  }
   const media = group.media || [];
   const image = media.length ? media[state.mediaIndex % media.length] : null;
   const trigger = activeTrigger(group.liveTrigger);
@@ -550,6 +652,14 @@ function drawPlayer() {
 }
 
 function mediaStage(group, media, image) {
+  const slidesUrl = slidesEmbedUrl(group.settings.googleSlidesUrl);
+  if (slidesUrl && group.modules.media) {
+    return `
+      <div class="${group.layout === "media" ? "media-showcase" : "command-media-card"} slides-media">
+        ${slidesFrame(slidesUrl)}
+      </div>
+    `;
+  }
   if (!group.modules.media || !image) return `<div class="visual-block">${escapeHtml(group.layout)}</div>`;
   const items = media.length > 1 ? [...media, ...media] : media;
   if (group.layout === "media") {
@@ -571,6 +681,18 @@ function mediaStage(group, media, image) {
 
 function mediaUrl(item) {
   return item?.dataUrl || item?.url || "";
+}
+
+function slidesFrame(url) {
+  return `<iframe class="slides-frame" src="${attr(url)}" allowfullscreen loading="eager" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+}
+
+function slidesEmbedUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const match = raw.match(/docs\.google\.com\/presentation\/d\/([^/]+)/i);
+  if (!match) return "";
+  return `https://docs.google.com/presentation/d/${encodeURIComponent(match[1])}/embed?start=true&loop=true&delayms=10000`;
 }
 
 function calendarBoard() {
@@ -789,7 +911,12 @@ async function handleSubmit(event) {
     if (action === "save-group") {
       collectBasicSettings(form);
       await saveActiveGroup();
-      flash("Group saved.");
+      flash("Screen design saved.");
+    }
+    if (action === "save-display") {
+      collectDisplaySettings(form);
+      await saveActiveDisplay();
+      flash("Display schedule saved.");
     }
     if (action === "custom-trigger") {
       await sendTrigger("timer", Number(data.minutes) * 60, data.label);
@@ -847,6 +974,16 @@ async function handleClick(event) {
     state.activeGroup = (await api(`/api/groups/${groupButton.dataset.groupId}`)).group;
     renderDashboard();
   }
+  const displayButton = event.target.closest("[data-display-id]");
+  if (displayButton) {
+    state.activeDisplay = (await api(`/api/displays/${displayButton.dataset.displayId}`)).display;
+    renderDashboard();
+  }
+  const dashboardTab = event.target.closest("[data-dashboard-tab]");
+  if (dashboardTab) {
+    state.dashboardTab = dashboardTab.dataset.dashboardTab;
+    renderDashboard();
+  }
   const action = event.target.closest("[data-action]")?.dataset.action;
   const themeChoice = event.target.closest("[data-select-theme]");
   if (themeChoice && state.activeGroup) {
@@ -857,8 +994,15 @@ async function handleClick(event) {
     flash("Theme selected. Recommended calendar colors are ready above the calendar list.");
   }
   if (action === "new-group") {
-    const result = await api("/api/groups", { method: "POST", body: { name: "New Signage Group" } });
+    const result = await api("/api/groups", { method: "POST", body: { name: "New Screen Design" } });
     state.activeGroup = result.group;
+    state.dashboardTab = "screens";
+    await renderDashboard();
+  }
+  if (action === "new-display") {
+    const result = await api("/api/displays", { method: "POST", body: { name: "New Display" } });
+    state.activeDisplay = result.display;
+    state.dashboardTab = "displays";
     await renderDashboard();
   }
   if (action === "logout") {
@@ -893,6 +1037,11 @@ async function handleClick(event) {
     state.activeGroup = null;
     await renderDashboard();
   }
+  if (action === "delete-display" && state.activeDisplay && confirm("Delete this display?")) {
+    await api(`/api/displays/${state.activeDisplay.id}`, { method: "DELETE" });
+    state.activeDisplay = null;
+    await renderDashboard();
+  }
   if (action === "fullscreen") {
     const target = document.documentElement;
     if (!document.fullscreenElement && target.requestFullscreen) await target.requestFullscreen();
@@ -906,6 +1055,16 @@ async function handleClick(event) {
   if (action === "add-calendar") await mutateGroup((group) => group.calendarFeeds.push({ id: uid("cal"), name: "Calendar", url: "", color: themePalette(group.theme)[group.calendarFeeds.length % themePalette(group.theme).length], enabled: true }));
   if (action === "add-countdown") await mutateGroup((group) => group.countdowns.push({ id: uid("cnt"), name: "Launch", mode: "countdown", target: new Date(Date.now() + 86400_000).toISOString(), enabled: true }));
   if (action === "add-blackout") await mutateGroup((group) => group.blackoutTimes.push({ id: uid("blk"), name: "Evening blackout", start: "22:00", end: "06:00", days: [0,1,2,3,4,5,6], enabled: true }));
+  if (action === "add-schedule") await mutateDisplay((display) => display.schedule.push({
+    id: uid("sch"),
+    name: "Scheduled screen",
+    type: "screen",
+    groupId: state.groups[0]?.id || "",
+    start: "08:00",
+    end: "17:00",
+    days: [0,1,2,3,4,5,6],
+    enabled: true
+  }));
   const trigger = event.target.closest("[data-trigger]");
   if (trigger) await sendTrigger(trigger.dataset.trigger, Number(trigger.dataset.duration || 0));
   const preview = event.target.closest("[data-open-player]");
@@ -914,11 +1073,12 @@ async function handleClick(event) {
   await removeByClick(event, "data-remove-countdown", "countdowns");
   await removeByClick(event, "data-remove-blackout", "blackoutTimes");
   await removeByClick(event, "data-remove-media", "media");
+  await removeScheduleByClick(event);
 }
 
 async function handleChange(event) {
-  if (!state.activeGroup) return;
   if (event.target.matches("[data-action='upload-images']")) {
+    if (!state.activeGroup) return;
     const files = [...event.target.files].slice(0, 10);
     for (const file of files) {
       const dataUrl = await fileToDataUrl(file);
@@ -935,7 +1095,8 @@ async function handleChange(event) {
     }
   }
   handleInput(event);
-  if (event.target.dataset.field) await saveActiveGroup();
+  if (event.target.dataset.field?.startsWith("schedule:")) await saveActiveDisplay();
+  else if (event.target.dataset.field && state.activeGroup) await saveActiveGroup();
 }
 
 function handleInput(event) {
@@ -951,8 +1112,18 @@ function handleInput(event) {
     return;
   }
   const field = event.target.dataset.field;
-  if (!field || !state.activeGroup) return;
+  if (!field) return;
   const [kind, prop] = field.split(":");
+  if (kind === "schedule" && state.activeDisplay) {
+    const row = event.target.closest("[data-schedule-id]");
+    const item = state.activeDisplay.schedule.find((entry) => entry.id === row?.dataset.scheduleId);
+    if (!item) return;
+    item[prop] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    markGroupChanged();
+    debounceSaveDisplay();
+    return;
+  }
+  if (!state.activeGroup) return;
   const row = event.target.closest("[data-calendar-id],[data-countdown-id],[data-blackout-id]");
   if (!row) return;
   const collections = { cal: "calendarFeeds", count: "countdowns", black: "blackoutTimes" };
@@ -997,7 +1168,21 @@ function collectBasicSettings(form) {
   group.settings.showSeconds = fd.get("showSeconds") === "on";
   group.settings.overlayOpacity = Number(fd.get("overlayOpacity") || 58);
   group.settings.calendarRange = fd.get("calendarRange") || "month";
+  group.settings.googleSlidesUrl = fd.get("googleSlidesUrl") || "";
+  group.settings.googleSlidesMode = fd.get("googleSlidesMode") || "media";
   for (const key of Object.keys(group.modules)) group.modules[key] = fd.get(`module:${key}`) === "on";
+  markGroupChanged();
+}
+
+function collectDisplaySettings(form) {
+  if (!state.activeDisplay) return;
+  const fd = new FormData(form);
+  state.activeDisplay.name = fd.get("displayName") || state.activeDisplay.name;
+  state.activeDisplay.settings = {
+    ...(state.activeDisplay.settings || {}),
+    googleSlidesUrl: fd.get("displaySlidesUrl") || "",
+    googleSlidesMode: fd.get("displaySlidesMode") || "media"
+  };
   markGroupChanged();
 }
 
@@ -1015,6 +1200,13 @@ async function mutateGroup(mutator) {
   renderDashboard();
 }
 
+async function mutateDisplay(mutator) {
+  mutator(state.activeDisplay);
+  markGroupChanged();
+  await saveActiveDisplay();
+  renderDashboard();
+}
+
 async function removeByClick(event, attrName, collection) {
   const button = event.target.closest(`[${attrName}]`);
   if (!button || !state.activeGroup) return;
@@ -1022,6 +1214,16 @@ async function removeByClick(event, attrName, collection) {
   state.activeGroup[collection] = state.activeGroup[collection].filter((item) => item.id !== idValue);
   markGroupChanged();
   await saveActiveGroup();
+  renderDashboard();
+}
+
+async function removeScheduleByClick(event) {
+  const button = event.target.closest("[data-remove-schedule]");
+  if (!button || !state.activeDisplay) return;
+  const idValue = button.getAttribute("data-remove-schedule");
+  state.activeDisplay.schedule = state.activeDisplay.schedule.filter((item) => item.id !== idValue);
+  markGroupChanged();
+  await saveActiveDisplay();
   renderDashboard();
 }
 
@@ -1035,6 +1237,11 @@ function debounceSave() {
   saveTimer = setTimeout(saveActiveGroup, 500);
 }
 
+function debounceSaveDisplay() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveActiveDisplay, 500);
+}
+
 async function saveActiveGroup() {
   if (!state.activeGroup) return;
   const revision = state.groupRevision;
@@ -1042,6 +1249,16 @@ async function saveActiveGroup() {
   const result = await api(`/api/groups/${snapshot.id}`, { method: "PUT", body: { group: snapshot } });
   if (revision === state.groupRevision) {
     state.activeGroup = result.group;
+  }
+}
+
+async function saveActiveDisplay() {
+  if (!state.activeDisplay) return;
+  const revision = state.groupRevision;
+  const snapshot = JSON.parse(JSON.stringify(state.activeDisplay));
+  const result = await api(`/api/displays/${snapshot.id}`, { method: "PUT", body: { display: snapshot } });
+  if (revision === state.groupRevision) {
+    state.activeDisplay = result.display;
   }
 }
 
@@ -1175,6 +1392,7 @@ function activeTrigger(trigger) {
 }
 
 function isBlackout(group) {
+  if (group?.scheduleBlackout) return true;
   const now = new Date();
   const day = now.getDay();
   const minutes = now.getHours() * 60 + now.getMinutes();

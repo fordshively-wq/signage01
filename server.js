@@ -61,10 +61,21 @@ start();
 
 async function start() {
   ensureDb();
-  await hydrateDbFromFirestore();
+  try {
+    await withTimeout(hydrateDbFromFirestore(), 5000, "Firestore hydrate timed out; starting from local cache.");
+  } catch (error) {
+    console.warn("Firestore hydrate skipped:", error.message);
+  }
   server.listen(PORT, HOST, () => {
     console.log(`SignalBoard is running at http://${HOST}:${PORT}`);
   });
+}
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+  ]);
 }
 
 async function routeApi(req, res, url) {
@@ -78,10 +89,18 @@ async function routeApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/groups") return listGroups(req, res);
   if (req.method === "POST" && url.pathname === "/api/groups") return createGroup(req, res);
 
+  if (req.method === "GET" && url.pathname === "/api/displays") return listDisplays(req, res);
+  if (req.method === "POST" && url.pathname === "/api/displays") return createDisplay(req, res);
+
   const groupMatch = url.pathname.match(/^\/api\/groups\/([^/]+)$/);
   if (groupMatch && req.method === "GET") return getGroup(req, res, groupMatch[1]);
   if (groupMatch && req.method === "PUT") return updateGroup(req, res, groupMatch[1]);
   if (groupMatch && req.method === "DELETE") return deleteGroup(req, res, groupMatch[1]);
+
+  const displayMatch = url.pathname.match(/^\/api\/displays\/([^/]+)$/);
+  if (displayMatch && req.method === "GET") return getDisplay(req, res, displayMatch[1]);
+  if (displayMatch && req.method === "PUT") return updateDisplay(req, res, displayMatch[1]);
+  if (displayMatch && req.method === "DELETE") return deleteDisplay(req, res, displayMatch[1]);
 
   const playerMatch = url.pathname.match(/^\/api\/player\/([A-Z0-9]{6})$/);
   if (playerMatch && req.method === "GET") return playerConfig(req, res, playerMatch[1]);
@@ -239,7 +258,7 @@ async function createGroup(req, res) {
   const group = defaultGroup({
     id: id("grp"),
     ownerId: auth.user.id,
-    name: String(body.name || "New Signage Group").trim().slice(0, 80),
+    name: String(body.name || "New Screen Design").trim().slice(0, 80),
     code: uniqueCode(auth.db),
     createdAt: now,
     updatedAt: now
@@ -248,6 +267,83 @@ async function createGroup(req, res) {
   writeDb(auth.db);
   await syncDbToFirestore(auth.db);
   sendJson(res, 201, { group });
+}
+
+async function listDisplays(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const displays = array(auth.db.displays)
+    .filter((display) => display.ownerId === auth.user.id)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map(summaryDisplay);
+  sendJson(res, 200, { displays });
+}
+
+async function createDisplay(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const body = await readJson(req);
+  const now = new Date().toISOString();
+  const firstGroup = auth.db.groups.find((group) => group.ownerId === auth.user.id);
+  const display = defaultDisplay({
+    id: id("dsp"),
+    ownerId: auth.user.id,
+    name: String(body.name || "New Display").trim().slice(0, 80),
+    code: uniqueCode(auth.db),
+    createdAt: now,
+    updatedAt: now
+  });
+  if (firstGroup) {
+    display.schedule.push(defaultScheduleEntry({
+      name: firstGroup.name,
+      groupId: firstGroup.id,
+      start: "00:00",
+      end: "23:59"
+    }));
+  }
+  auth.db.displays.push(display);
+  writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
+  sendJson(res, 201, { display });
+}
+
+async function getDisplay(req, res, displayId) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const display = ownedDisplay(auth, displayId);
+  if (!display) return sendJson(res, 404, { error: "Display not found." });
+  sendJson(res, 200, { display });
+}
+
+async function updateDisplay(req, res, displayId) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const display = ownedDisplay(auth, displayId);
+  if (!display) return sendJson(res, 404, { error: "Display not found." });
+  const body = await readJson(req);
+  const incoming = sanitizeDisplay(body.display || {}, auth.db, auth.user.id);
+  Object.assign(display, incoming, {
+    id: display.id,
+    ownerId: display.ownerId,
+    code: display.code,
+    createdAt: display.createdAt,
+    updatedAt: new Date().toISOString()
+  });
+  writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
+  sendJson(res, 200, { display });
+}
+
+async function deleteDisplay(req, res, displayId) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const index = auth.db.displays.findIndex((display) => display.id === displayId && display.ownerId === auth.user.id);
+  if (index === -1) return sendJson(res, 404, { error: "Display not found." });
+  const [deleted] = auth.db.displays.splice(index, 1);
+  await deleteDisplayFromFirestore(deleted);
+  writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
+  sendJson(res, 200, { ok: true });
 }
 
 async function getGroup(req, res, groupId) {
@@ -292,22 +388,37 @@ async function deleteGroup(req, res, groupId) {
 
 async function playerConfig(req, res, code) {
   const db = readDb();
+  const display = array(db.displays).find((entry) => entry.code === code);
+  if (display) {
+    const resolved = resolveDisplayGroup(db, display);
+    if (!resolved.group && !resolved.blackout) return sendJson(res, 404, { error: "This display does not have a screen scheduled right now." });
+    if (resolved.blackout) {
+      return sendJson(res, 200, {
+        display: publicDisplay(display),
+        group: displayBlackoutGroup(display)
+      });
+    }
+    return sendJson(res, 200, {
+      display: publicDisplay(display),
+      group: publicGroupForDisplay(resolved.group, display, resolved.entry)
+    });
+  }
   const group = db.groups.find((entry) => entry.code === code);
-  if (!group) return sendJson(res, 404, { error: "No signage group is paired with that code." });
+  if (!group) return sendJson(res, 404, { error: "No display or screen design is paired with that code." });
   sendJson(res, 200, { group: publicGroup(group) });
 }
 
 async function controlConfig(req, res, code) {
   const db = readDb();
-  const group = db.groups.find((entry) => entry.code === code);
-  if (!group) return sendJson(res, 404, { error: "No signage group is paired with that code." });
+  const group = groupForCode(db, code);
+  if (!group) return sendJson(res, 404, { error: "No active screen is paired with that code." });
   sendJson(res, 200, { group: controlGroupView(group) });
 }
 
 async function controlGroup(req, res, code) {
   const db = readDb();
-  const group = db.groups.find((entry) => entry.code === code);
-  if (!group) return sendJson(res, 404, { error: "No signage group is paired with that code." });
+  const group = groupForCode(db, code);
+  if (!group) return sendJson(res, 404, { error: "No active screen is paired with that code." });
   const body = await readJson(req);
   if (body.layout && ["command", "media", "calendar", "weather", "workshop"].includes(body.layout)) group.layout = body.layout;
   if (themeIds().includes(body.theme)) group.theme = body.theme;
@@ -355,7 +466,7 @@ function applyTrigger(group, body) {
 async function calendarEvents(req, res, groupId) {
   const auth = optionalAuth(req);
   const db = auth?.db || readDb();
-  const group = db.groups.find((entry) => entry.id === groupId || entry.code === groupId);
+  const group = db.groups.find((entry) => entry.id === groupId || entry.code === groupId) || groupForDisplayCode(db, groupId);
   if (!group) return sendJson(res, 404, { error: "Group not found." });
   if (auth && group.ownerId !== auth.user.id && group.id === groupId) return sendJson(res, 403, { error: "Forbidden." });
 
@@ -426,6 +537,10 @@ function ownedGroup(auth, groupId) {
   return auth.db.groups.find((group) => group.id === groupId && group.ownerId === auth.user.id);
 }
 
+function ownedDisplay(auth, displayId) {
+  return array(auth.db.displays).find((display) => display.id === displayId && display.ownerId === auth.user.id);
+}
+
 function defaultGroup(base) {
   return {
     ...base,
@@ -441,7 +556,9 @@ function defaultGroup(base) {
       showMediaBanner: true,
       showSeconds: false,
       overlayOpacity: 58,
-      calendarRange: "month"
+      calendarRange: "month",
+      googleSlidesUrl: "",
+      googleSlidesMode: "media"
     },
     modules: {
       clock: true,
@@ -457,6 +574,30 @@ function defaultGroup(base) {
     countdowns: [],
     blackoutTimes: [],
     liveTrigger: null
+  };
+}
+
+function defaultDisplay(base) {
+  return {
+    ...base,
+    settings: {
+      googleSlidesUrl: "",
+      googleSlidesMode: "media"
+    },
+    schedule: []
+  };
+}
+
+function defaultScheduleEntry(base = {}) {
+  return {
+    id: String(base.id || id("sch")).slice(0, 40),
+    name: String(base.name || "Scheduled screen").trim().slice(0, 80),
+    type: base.type === "blackout" ? "blackout" : "screen",
+    groupId: String(base.groupId || "").trim().slice(0, 80),
+    start: clockTime(base.start) || "00:00",
+    end: clockTime(base.end) || "23:59",
+    days: array(base.days).length ? array(base.days).map(Number).filter((day) => day >= 0 && day <= 6) : [0, 1, 2, 3, 4, 5, 6],
+    enabled: base.enabled !== false
   };
 }
 
@@ -481,7 +622,9 @@ function sanitizeGroup(raw) {
     showMediaBanner: raw.settings?.showMediaBanner !== false,
     showSeconds: Boolean(raw.settings?.showSeconds),
     overlayOpacity: clamp(Number(raw.settings?.overlayOpacity ?? 58), 0, 90),
-    calendarRange: ["one-day", "three-day", "week", "two-week", "month"].includes(raw.settings?.calendarRange) ? raw.settings.calendarRange : "month"
+    calendarRange: ["one-day", "three-day", "week", "two-week", "month"].includes(raw.settings?.calendarRange) ? raw.settings.calendarRange : "month",
+    googleSlidesUrl: googleSlidesSource(raw.settings?.googleSlidesUrl),
+    googleSlidesMode: raw.settings?.googleSlidesMode === "full" ? "full" : "media"
   };
   safe.modules = {
     clock: Boolean(raw.modules?.clock),
@@ -534,8 +677,88 @@ function sanitizeGroup(raw) {
   return safe;
 }
 
+function sanitizeDisplay(raw, db, ownerId) {
+  const safe = defaultDisplay({
+    id: "",
+    ownerId: "",
+    name: String(raw.name || "Untitled Display").trim().slice(0, 80),
+    code: "",
+    createdAt: "",
+    updatedAt: ""
+  });
+  const ownedGroupIds = new Set(array(db.groups).filter((group) => group.ownerId === ownerId).map((group) => group.id));
+  safe.settings = {
+    googleSlidesUrl: googleSlidesSource(raw.settings?.googleSlidesUrl),
+    googleSlidesMode: raw.settings?.googleSlidesMode === "full" ? "full" : "media"
+  };
+  safe.schedule = array(raw.schedule).slice(0, 64)
+    .map(defaultScheduleEntry)
+    .filter((entry) => entry.type === "blackout" || ownedGroupIds.has(entry.groupId));
+  return safe;
+}
+
 function publicGroup(group) {
   const { ownerId, ...rest } = group;
+  return rest;
+}
+
+function publicGroupForDisplay(group, display, entry) {
+  const displaySlidesUrl = googleSlidesSource(display.settings?.googleSlidesUrl);
+  return {
+    ...publicGroup(group),
+    code: display.code,
+    displayId: display.id,
+    displayName: display.name,
+    settings: {
+      ...group.settings,
+      googleSlidesUrl: displaySlidesUrl || group.settings?.googleSlidesUrl || "",
+      googleSlidesMode: displaySlidesUrl ? (display.settings?.googleSlidesMode === "full" ? "full" : "media") : (group.settings?.googleSlidesMode || "media")
+    },
+    activeScheduleEntry: entry ? {
+      id: entry.id,
+      name: entry.name,
+      type: entry.type,
+      start: entry.start,
+      end: entry.end
+    } : null
+  };
+}
+
+function displayBlackoutGroup(display) {
+  const now = new Date().toISOString();
+  return {
+    id: display.id,
+    name: display.name,
+    code: display.code,
+    theme: "graphite",
+    layout: "command",
+    settings: {
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York",
+      weatherLocation: "",
+      weatherZip: "",
+      headline: display.name,
+      subheadline: "",
+      fillScreen: true,
+      showMediaBanner: false,
+      showSeconds: false,
+      overlayOpacity: 80,
+      calendarRange: "month",
+      googleSlidesUrl: "",
+      googleSlidesMode: "media"
+    },
+    modules: { clock: false, date: false, weather: false, calendar: false, media: false, countdowns: false, events: false },
+    calendarFeeds: [],
+    media: [],
+    countdowns: [],
+    blackoutTimes: [],
+    liveTrigger: null,
+    scheduleBlackout: true,
+    updatedAt: now
+  };
+}
+
+function publicDisplay(display) {
+  const { ownerId, ...rest } = display;
   return rest;
 }
 
@@ -564,6 +787,16 @@ function summaryGroup(group) {
     theme: group.theme,
     layout: group.layout,
     updatedAt: group.updatedAt
+  };
+}
+
+function summaryDisplay(display) {
+  return {
+    id: display.id,
+    name: display.name,
+    code: display.code,
+    scheduleCount: array(display.schedule).length,
+    updatedAt: display.updatedAt
   };
 }
 
@@ -631,6 +864,13 @@ function mediaSource(value) {
   if (source.startsWith("data:image/")) return source.slice(0, 8_000_000);
   if (/^https:\/\/.+/i.test(source)) return source.slice(0, 1000);
   return "";
+}
+
+function googleSlidesSource(value) {
+  const source = String(value || "").trim();
+  if (!source) return "";
+  if (!/^https:\/\/docs\.google\.com\/presentation\/d\/[^/\s]+/i.test(source)) return "";
+  return source.slice(0, 1000);
 }
 
 async function persistMediaAssets(group, groupId) {
@@ -737,16 +977,34 @@ async function readJson(req) {
 function ensureDb() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DB_FILE)) {
-    writeDb({ users: [], sessions: [], groups: [] });
+    writeDb({ users: [], sessions: [], groups: [], displays: [] });
   }
 }
 
 function readDb() {
   ensureDb();
   const db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+  db.users = array(db.users);
+  db.sessions = array(db.sessions);
   db.groups = array(db.groups).map((group) => ({
     ...group,
+    settings: {
+      ...defaultGroup({}).settings,
+      ...(group.settings || {}),
+      googleSlidesUrl: googleSlidesSource(group.settings?.googleSlidesUrl),
+      googleSlidesMode: group.settings?.googleSlidesMode === "full" ? "full" : "media"
+    },
     theme: themeIds().includes(group.theme) ? group.theme : "beach-house"
+  }));
+  db.displays = array(db.displays).map((display) => ({
+    ...display,
+    settings: {
+      ...defaultDisplay({}).settings,
+      ...(display.settings || {}),
+      googleSlidesUrl: googleSlidesSource(display.settings?.googleSlidesUrl),
+      googleSlidesMode: display.settings?.googleSlidesMode === "full" ? "full" : "media"
+    },
+    schedule: array(display.schedule).map(defaultScheduleEntry)
   }));
   return db;
 }
@@ -821,12 +1079,24 @@ function publicFirebaseConfig() {
 async function hydrateDbFromFirestore() {
   if (!firebase.firestore) return;
   const db = readDb();
-  const [usersSnap, groupsSnap] = await Promise.all([
+  const [usersSnap, groupsSnap, displaysSnap] = await Promise.all([
     firebase.firestore.collection("users").get(),
-    firebase.firestore.collection("groups").get()
+    firebase.firestore.collection("groups").get(),
+    firebase.firestore.collection("displays").get()
   ]);
   db.users = usersSnap.docs.map((doc) => doc.data());
   db.groups = await Promise.all(groupsSnap.docs.map(async (doc) => hydrateGroupCollections(doc.data())));
+  db.displays = displaysSnap.docs.map((doc) => {
+    const raw = doc.data();
+    const display = sanitizeDisplay(raw, db, raw.ownerId);
+    return Object.assign(display, {
+      id: raw.id,
+      ownerId: raw.ownerId,
+      code: raw.code,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt
+    });
+  });
   db.sessions = [];
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
@@ -839,7 +1109,11 @@ async function syncDbToFirestore(db) {
   }
   for (const group of db.groups || []) {
     batch.set(firebase.firestore.collection("groups").doc(group.id), group, { merge: true });
-    batch.set(firebase.firestore.collection("codes").doc(group.code), { groupId: group.id, code: group.code }, { merge: true });
+    batch.set(firebase.firestore.collection("codes").doc(group.code), { groupId: group.id, code: group.code, type: "screen" }, { merge: true });
+  }
+  for (const display of db.displays || []) {
+    batch.set(firebase.firestore.collection("displays").doc(display.id), display, { merge: true });
+    batch.set(firebase.firestore.collection("codes").doc(display.code), { displayId: display.id, code: display.code, type: "display" }, { merge: true });
   }
   await batch.commit();
   await Promise.all((db.groups || []).map((group) => syncGroupCollections(group)));
@@ -855,6 +1129,14 @@ async function deleteGroupFromFirestore(group) {
   const batch = firebase.firestore.batch();
   batch.delete(firebase.firestore.collection("groups").doc(group.id));
   if (group.code) batch.delete(firebase.firestore.collection("codes").doc(group.code));
+  await batch.commit();
+}
+
+async function deleteDisplayFromFirestore(display) {
+  if (!firebase.firestore || !display) return;
+  const batch = firebase.firestore.batch();
+  batch.delete(firebase.firestore.collection("displays").doc(display.id));
+  if (display.code) batch.delete(firebase.firestore.collection("codes").doc(display.code));
   await batch.commit();
 }
 
@@ -895,6 +1177,39 @@ async function syncGroupCollections(group) {
 
 function linkedMediaItems(media) {
   return media.filter((item) => !item.storagePath && /^https:\/\//i.test(String(item.dataUrl || "")));
+}
+
+function groupForCode(db, code) {
+  return db.groups.find((entry) => entry.code === code) || groupForDisplayCode(db, code);
+}
+
+function groupForDisplayCode(db, code) {
+  const display = array(db.displays).find((entry) => entry.code === code);
+  if (!display) return null;
+  return resolveDisplayGroup(db, display).group;
+}
+
+function resolveDisplayGroup(db, display, at = new Date()) {
+  const entries = array(display.schedule).filter((entry) => entry.enabled && activeOnDay(entry, at));
+  const active = entries.find((entry) => activeAtTime(entry, at));
+  const fallback = entries.find((entry) => entry.type === "screen") || null;
+  const entry = active || fallback;
+  if (!entry) return { group: null, entry: null, blackout: false };
+  if (entry.type === "blackout") return { group: null, entry, blackout: true };
+  const group = db.groups.find((candidate) => candidate.id === entry.groupId && candidate.ownerId === display.ownerId);
+  return { group, entry, blackout: false };
+}
+
+function activeOnDay(entry, at) {
+  const days = array(entry.days);
+  return !days.length || days.includes(at.getDay());
+}
+
+function activeAtTime(entry, at) {
+  const minutes = at.getHours() * 60 + at.getMinutes();
+  const start = timeMinutes(entry.start);
+  const end = timeMinutes(entry.end);
+  return start <= end ? minutes >= start && minutes < end : minutes >= start || minutes < end;
 }
 
 async function replaceSubcollection(groupId, name, items) {
@@ -953,7 +1268,7 @@ function uniqueCode(db) {
   let code = "";
   do {
     code = crypto.randomBytes(4).toString("hex").toUpperCase().replace(/[IO]/g, "7").slice(0, 6);
-  } while (db.groups.some((group) => group.code === code));
+  } while (array(db.groups).some((group) => group.code === code) || array(db.displays).some((display) => display.code === code));
   return code;
 }
 
@@ -986,4 +1301,9 @@ function validIso(value) {
 
 function clockTime(value) {
   return typeof value === "string" && /^\d{2}:\d{2}$/.test(value) ? value : null;
+}
+
+function timeMinutes(value) {
+  const [h, m] = String(value || "00:00").split(":").map(Number);
+  return h * 60 + m;
 }

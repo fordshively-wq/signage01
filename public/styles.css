@@ -1,14 +1,14 @@
 :root {
-  color-scheme: dark;
-  --bg: #0d0f12;
-  --panel: #171b20;
-  --panel-2: #20262d;
-  --text: #f4f0e8;
-  --muted: #aab3b9;
-  --line: #303840;
-  --accent: #41d6b3;
-  --accent-2: #f2b84b;
-  --danger: #ff6f61;
+  color-scheme: light;
+  --bg: #f6f3ee;
+  --panel: #fffdf8;
+  --panel-2: #ebe5dc;
+  --text: #1e252b;
+  --muted: #6f7a80;
+  --line: #ddd4c8;
+  --accent: #2f8f7c;
+  --accent-2: #9a6a32;
+  --danger: #c94f43;
   --radius: 8px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -42,7 +42,7 @@ textarea {
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101419;
+  background: #fffaf3;
   color: var(--text);
   padding: 0 12px;
 }
@@ -170,7 +170,7 @@ label {
 .rail-tile {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(23, 27, 32, 0.88);
+  background: rgba(255, 253, 248, 0.9);
 }
 
 .screen-grid div {
@@ -216,7 +216,7 @@ label {
   min-height: 48px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: #f4f0e8;
+  background: #ffffff;
   color: #11161b;
   font-weight: 900;
 }
@@ -238,7 +238,7 @@ label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #07110e;
+  color: #f9fffc;
   background: var(--accent);
   font-weight: 800;
 }
@@ -257,7 +257,7 @@ label {
 
 .danger {
   background: rgba(255, 111, 97, 0.12);
-  color: #ffb8b1;
+  color: #a83d34;
   border: 1px solid rgba(255, 111, 97, 0.4);
 }
 
@@ -278,7 +278,7 @@ label {
 
 .sidebar {
   border-right: 1px solid var(--line);
-  background: #101419;
+  background: #fffaf3;
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -294,6 +294,30 @@ label {
   overflow: auto;
 }
 
+.dashboard-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f0e8dc;
+}
+
+.dashboard-tabs button {
+  min-height: 38px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.dashboard-tabs button.active {
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgba(78, 58, 34, 0.08);
+}
+
 .group-pill {
   text-align: left;
   display: flex;
@@ -307,9 +331,14 @@ label {
   padding: 14px;
 }
 
+.group-pill small {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
 .group-pill.active {
   border-color: var(--accent);
-  background: rgba(65, 214, 179, 0.09);
+  background: rgba(47, 143, 124, 0.1);
 }
 
 code,
@@ -395,6 +424,31 @@ code,
   grid-template-columns: 1fr 2fr 54px auto auto;
 }
 
+.schedule-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.schedule-edit-row {
+  grid-template-columns: 1.2fr 150px 1.4fr 116px 116px auto auto;
+}
+
+.display-code-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7efe3;
+}
+
+.display-code-card code {
+  font-size: clamp(28px, 4vw, 46px);
+  font-weight: 900;
+}
+
 .color-input {
   min-height: 42px;
   padding: 4px;
@@ -404,7 +458,7 @@ code,
   width: 38px;
   padding: 0;
   color: var(--muted);
-  background: #11161b;
+  background: #fffaf3;
   border: 1px solid var(--line);
 }
 
@@ -745,6 +799,28 @@ code,
   position: absolute;
   inset: 0;
   overflow: hidden;
+}
+
+.slides-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+}
+
+.slides-media::after {
+  pointer-events: none;
+}
+
+.slides-only {
+  display: block;
+  background: #000;
+}
+
+.slides-only .slides-frame {
+  position: fixed;
 }
 
 .hero-media {
@@ -1665,6 +1741,7 @@ code,
 
   .editor-grid,
   .edit-row,
+  .schedule-edit-row,
   .inline-form {
     grid-template-columns: 1fr;
   }
