@@ -207,6 +207,7 @@ function dashboardEditor(group) {
       </div>
       <div class="header-actions">
         <button class="secondary" data-open-player="${group.code}">Preview</button>
+        <button class="secondary" data-action="duplicate-group">Duplicate</button>
         <button class="danger" data-action="delete-group">Delete</button>
       </div>
     </header>
@@ -346,6 +347,7 @@ function displayEditor(display) {
           <label>Display Google Slides override<input name="displaySlidesUrl" value="${attr(display.settings?.googleSlidesUrl || "")}" placeholder="https://docs.google.com/presentation/d/..." /></label>
           <label>Slides mode${select("displaySlidesMode", display.settings?.googleSlidesMode || "media", [["media", "Media area with widgets"], ["full", "Full-screen slides"]])}</label>
         </div>
+        <label class="toggle"><input type="checkbox" name="hideCodeOnDisplay" ${display.settings?.hideCodeOnDisplay ? "checked" : ""} />Hide signage code on the display</label>
         <div class="panel-head">
           <h2>Daily Schedule</h2>
           <button class="secondary" type="button" data-action="add-schedule">Add Schedule Block</button>
@@ -629,11 +631,12 @@ function drawPlayer() {
   const media = group.media || [];
   const image = media.length ? media[state.mediaIndex % media.length] : null;
   const trigger = activeTrigger(group.liveTrigger);
+  const displayLabel = group.settings.hideCodeOnDisplay ? group.name : `${group.name} · ${group.code}`;
   $app.innerHTML = `
     <section class="player-main">
       ${mediaStage(group, media, image)}
       <div class="player-copy">
-        <p class="eyebrow">${escapeHtml(group.name)} · ${group.code}</p>
+        <p class="eyebrow">${escapeHtml(displayLabel)}</p>
         <h1>${escapeHtml(group.settings.headline || group.name)}</h1>
         <p>${escapeHtml(group.settings.subheadline || "")}</p>
       </div>
@@ -999,6 +1002,13 @@ async function handleClick(event) {
     state.dashboardTab = "screens";
     await renderDashboard();
   }
+  if (action === "duplicate-group" && state.activeGroup) {
+    const result = await api(`/api/groups/${state.activeGroup.id}/duplicate`, { method: "POST" });
+    state.activeGroup = result.group;
+    state.dashboardTab = "screens";
+    await renderDashboard();
+    flash(`Duplicated as ${result.group.name}.`);
+  }
   if (action === "new-display") {
     const result = await api("/api/displays", { method: "POST", body: { name: "New Display" } });
     state.activeDisplay = result.display;
@@ -1181,7 +1191,8 @@ function collectDisplaySettings(form) {
   state.activeDisplay.settings = {
     ...(state.activeDisplay.settings || {}),
     googleSlidesUrl: fd.get("displaySlidesUrl") || "",
-    googleSlidesMode: fd.get("displaySlidesMode") || "media"
+    googleSlidesMode: fd.get("displaySlidesMode") || "media",
+    hideCodeOnDisplay: fd.get("hideCodeOnDisplay") === "on"
   };
   markGroupChanged();
 }

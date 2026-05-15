@@ -97,6 +97,9 @@ async function routeApi(req, res, url) {
   if (groupMatch && req.method === "PUT") return updateGroup(req, res, groupMatch[1]);
   if (groupMatch && req.method === "DELETE") return deleteGroup(req, res, groupMatch[1]);
 
+  const duplicateGroupMatch = url.pathname.match(/^\/api\/groups\/([^/]+)\/duplicate$/);
+  if (duplicateGroupMatch && req.method === "POST") return duplicateGroup(req, res, duplicateGroupMatch[1]);
+
   const displayMatch = url.pathname.match(/^\/api\/displays\/([^/]+)$/);
   if (displayMatch && req.method === "GET") return getDisplay(req, res, displayMatch[1]);
   if (displayMatch && req.method === "PUT") return updateDisplay(req, res, displayMatch[1]);
@@ -267,6 +270,28 @@ async function createGroup(req, res) {
   writeDb(auth.db);
   await syncDbToFirestore(auth.db);
   sendJson(res, 201, { group });
+}
+
+async function duplicateGroup(req, res, groupId) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const source = ownedGroup(auth, groupId);
+  if (!source) return sendJson(res, 404, { error: "Screen design not found." });
+  const now = new Date().toISOString();
+  const copy = cloneGroupDesign(source);
+  Object.assign(copy, {
+    id: id("grp"),
+    ownerId: auth.user.id,
+    name: `Copy of ${source.name}`.slice(0, 80),
+    code: uniqueCode(auth.db),
+    createdAt: now,
+    updatedAt: now,
+    liveTrigger: null
+  });
+  auth.db.groups.push(copy);
+  writeDb(auth.db);
+  await syncDbToFirestore(auth.db);
+  sendJson(res, 201, { group: copy });
 }
 
 async function listDisplays(req, res) {
@@ -582,10 +607,20 @@ function defaultDisplay(base) {
     ...base,
     settings: {
       googleSlidesUrl: "",
-      googleSlidesMode: "media"
+      googleSlidesMode: "media",
+      hideCodeOnDisplay: false
     },
     schedule: []
   };
+}
+
+function cloneGroupDesign(source) {
+  const copy = JSON.parse(JSON.stringify(source));
+  copy.calendarFeeds = array(copy.calendarFeeds).map((feed) => ({ ...feed, id: id("cal") }));
+  copy.media = array(copy.media).map((item) => ({ ...item, id: id("img") }));
+  copy.countdowns = array(copy.countdowns).map((timer) => ({ ...timer, id: id("cnt") }));
+  copy.blackoutTimes = array(copy.blackoutTimes).map((entry) => ({ ...entry, id: id("blk") }));
+  return copy;
 }
 
 function defaultScheduleEntry(base = {}) {
@@ -689,7 +724,8 @@ function sanitizeDisplay(raw, db, ownerId) {
   const ownedGroupIds = new Set(array(db.groups).filter((group) => group.ownerId === ownerId).map((group) => group.id));
   safe.settings = {
     googleSlidesUrl: googleSlidesSource(raw.settings?.googleSlidesUrl),
-    googleSlidesMode: raw.settings?.googleSlidesMode === "full" ? "full" : "media"
+    googleSlidesMode: raw.settings?.googleSlidesMode === "full" ? "full" : "media",
+    hideCodeOnDisplay: Boolean(raw.settings?.hideCodeOnDisplay)
   };
   safe.schedule = array(raw.schedule).slice(0, 64)
     .map(defaultScheduleEntry)
@@ -712,7 +748,8 @@ function publicGroupForDisplay(group, display, entry) {
     settings: {
       ...group.settings,
       googleSlidesUrl: displaySlidesUrl || group.settings?.googleSlidesUrl || "",
-      googleSlidesMode: displaySlidesUrl ? (display.settings?.googleSlidesMode === "full" ? "full" : "media") : (group.settings?.googleSlidesMode || "media")
+      googleSlidesMode: displaySlidesUrl ? (display.settings?.googleSlidesMode === "full" ? "full" : "media") : (group.settings?.googleSlidesMode || "media"),
+      hideCodeOnDisplay: Boolean(display.settings?.hideCodeOnDisplay)
     },
     activeScheduleEntry: entry ? {
       id: entry.id,
@@ -1002,7 +1039,8 @@ function readDb() {
       ...defaultDisplay({}).settings,
       ...(display.settings || {}),
       googleSlidesUrl: googleSlidesSource(display.settings?.googleSlidesUrl),
-      googleSlidesMode: display.settings?.googleSlidesMode === "full" ? "full" : "media"
+      googleSlidesMode: display.settings?.googleSlidesMode === "full" ? "full" : "media",
+      hideCodeOnDisplay: Boolean(display.settings?.hideCodeOnDisplay)
     },
     schedule: array(display.schedule).map(defaultScheduleEntry)
   }));
